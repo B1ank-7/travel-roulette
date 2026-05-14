@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冷门旅游城市大转盘</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f0ea;color:#5d5248;min-height:100vh;overflow-x:hidden}
+.bg-particles{position:fixed;inset:0;pointer-events:none;z-index:0;background:linear-gradient(180deg,#f2ebe3 0%,#f8f4ef 50%,#ede4d9 100%)}
+.main-container{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:30px 20px}
+.header{text-align:center;margin-bottom:30px}
+.header h1{font-size:2.4em;background:linear-gradient(135deg,#c49b8c,#d4a899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;letter-spacing:4px}
+.header .subtitle{color:#a6988a;font-size:.9em;letter-spacing:2px}
+.wheel-section{display:flex;flex-direction:column;align-items:center}
+.wheel-wrapper{position:relative;width:520px;height:520px}
+.pointer{position:absolute;top:-18px;left:50%;transform:translateX(-50%);z-index:10;width:0;height:0;border-left:22px solid transparent;border-right:22px solid transparent;border-top:36px solid #c49b8c;filter:drop-shadow(0 2px 6px rgba(180,140,120,0.4))}
+.pointer::after{content:'';position:absolute;top:-42px;left:-8px;width:16px;height:16px;background:#c49b8c;border-radius:50%}
+#wheelCanvas{border-radius:50%;box-shadow:0 0 60px rgba(180,140,120,0.12),0 0 0 6px #e0d5c7;transition:box-shadow .5s}
+#wheelCanvas.spinning{box-shadow:0 0 80px rgba(180,140,120,0.25),0 0 0 6px #d4c8b8}
+.spin-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;width:90px;height:90px;border-radius:50%;border:3px solid #c49b8c;background:linear-gradient(135deg,#f7f3ed,#ede4d9);color:#c49b8c;font-size:1.3em;font-weight:700;cursor:pointer;letter-spacing:2px;transition:all .2s;box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+.spin-btn:hover{background:linear-gradient(135deg,#ede4d9,#e5d5c5);box-shadow:0 6px 30px rgba(180,140,120,0.25);transform:translate(-50%,-50%) scale(1.05)}
+.spin-btn:active{transform:translate(-50%,-50%) scale(.95)}
+.spin-btn:disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
+.refresh-btn{margin-top:16px;padding:10px 24px;border:1px solid #d9cdbf;border-radius:10px;background:transparent;color:#a6988a;cursor:pointer;font-size:.9em;transition:all .2s;letter-spacing:1px}
+.refresh-btn:hover{border-color:#c49b8c;color:#c49b8c}
+
+/* Result */
+.result-panel{display:none;margin-top:40px;background:#faf7f2;border-radius:20px;padding:36px;border:1px solid #e5dbcf;animation:slideUp .5s ease;box-shadow:0 4px 24px rgba(0,0,0,0.04)}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.result-panel.show{display:block}
+.result-city-name{font-size:2em;font-weight:700;text-align:center;background:linear-gradient(135deg,#c49b8c,#a3b5a0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.result-province{text-align:center;color:#8a7e72;margin-bottom:24px;line-height:1.7}
+.result-best-season{text-align:center;color:#a6988a;font-size:.85em;margin-bottom:20px}
+.result-best-season strong{color:#c49b8c}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
+.info-card{background:#fdfbf8;border-radius:14px;padding:20px;border:1px solid #e8e0d5}
+.info-card h3{font-size:1em;color:#c49b8c;margin-bottom:12px;letter-spacing:1px}
+.info-card ul{list-style:none;padding:0}
+.info-card li{padding:5px 0;font-size:.9em;color:#6b6056}
+.info-card li::before{content:'• ';color:#c49b8c}
+.info-card li span.tag{display:inline-block;font-size:.7em;padding:1px 6px;border-radius:4px;background:#e8d5cb;color:#b88574;margin-left:6px;vertical-align:middle}
+
+/* Duration */
+.duration-section{margin-top:24px;text-align:center}
+.duration-section h3{font-size:.95em;color:#a6988a;margin-bottom:14px;letter-spacing:1px}
+.duration-options{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.duration-btn{padding:10px 20px;border-radius:10px;border:1px solid #d9cdbf;background:#fdfbf8;color:#6b6056;cursor:pointer;font-size:.9em;transition:all .2s}
+.duration-btn:hover{border-color:#c49b8c;color:#c49b8c}
+.duration-btn.selected{background:#e8d5cb;border-color:#c49b8c;color:#b88574}
+.custom-days{display:flex;gap:8px;align-items:center;justify-content:center}
+.custom-days input{width:50px;padding:8px;text-align:center;background:#fdfbf8;border:1px solid #d9cdbf;border-radius:8px;color:#5d5248;font-size:.9em}
+.custom-days span{color:#a6988a;font-size:.85em}
+.generate-btn{margin-top:16px;padding:12px 40px;border:none;border-radius:12px;background:linear-gradient(135deg,#c49b8c,#b88574);color:#fff;font-size:1em;font-weight:700;cursor:pointer;letter-spacing:2px;transition:all .2s}
+.generate-btn:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(180,140,120,0.3)}
+.generate-btn:active{transform:scale(.97)}
+
+/* Document */
+.doc-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(70,60,50,0.8);overflow-y:auto}
+.doc-overlay.show{display:block}
+.doc-container{max-width:820px;margin:40px auto;background:#faf7f2;color:#4a423b;border-radius:12px;overflow:hidden;animation:slideUp .4s ease;box-shadow:0 8px 40px rgba(0,0,0,0.15)}
+.doc-header{background:linear-gradient(135deg,#4a423b,#5d5248);color:#f5f0ea;padding:30px 40px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;flex-wrap:wrap;gap:12px}
+.doc-header h2{font-size:1.5em}
+.doc-actions{display:flex;gap:10px}
+.doc-actions button{padding:8px 18px;border:1px solid rgba(255,255,255,0.25);border-radius:8px;background:transparent;color:#f5f0ea;cursor:pointer;font-size:.85em;transition:all .2s}
+.doc-actions button:hover{background:rgba(255,255,255,0.08)}
+.doc-actions .save-btn{background:#c49b8c;border-color:#c49b8c;color:#fff;font-weight:600}
+.doc-actions .save-btn:hover{background:#b88574}
+.doc-body{padding:40px;background:#fdfbf8}
+.doc-body h3{font-size:1.2em;color:#4a423b;margin:28px 0 12px;padding-bottom:8px;border-bottom:2px solid #d9cdbf}
+.doc-body h3:first-child{margin-top:0}
+.doc-body .day-block{background:#f8f4ef;padding:20px 24px;border-radius:12px;margin:20px 0;border-left:5px solid #c49b8c}
+.doc-body .day-block h4{color:#b88574;margin-bottom:12px;font-size:1.05em}
+.doc-body .timeline-item{display:flex;gap:16px;margin:14px 0;align-items:flex-start}
+.doc-body .timeline-time{min-width:70px;padding:4px 10px;background:#e8d5cb;border-radius:6px;text-align:center;font-size:.85em;color:#b88574;font-weight:600}
+.doc-body .timeline-content{flex:1}
+.doc-body .timeline-content strong{display:block;margin-bottom:4px}
+.doc-body .timeline-content p{color:#7a6e62;font-size:.9em;line-height:1.6}
+.doc-body .place-img{width:100%;height:240px;object-fit:cover;border-radius:10px;margin:8px 0;background:#ede4d9}
+.doc-body .img-note{text-align:right;font-size:.72em;color:#b8a898;margin-top:-2px;margin-bottom:6px}
+.doc-body .img-note a{color:#c49b8c;text-decoration:none}
+.doc-body .img-note a:hover{text-decoration:underline}
+.doc-body .food-list{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.doc-body .food-card{background:#f8f4ef;border-radius:10px;overflow:hidden;border:1px solid #e5dbcf}
+.doc-body .food-card img{width:100%;height:160px;object-fit:cover;background:#ede4d9}
+.doc-body .food-card .fi{padding:12px}
+.doc-body .food-card .fi strong{display:block;margin-bottom:2px}
+.doc-body .food-card .fi span{color:#8a7e72;font-size:.82em}
+.tips-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.tip-card{background:#f8f4ef;border-radius:10px;padding:14px 18px;border:1px solid #e5dbcf}
+.tip-card strong{color:#4a423b;font-size:.9em}
+.tip-card p{color:#7a6e62;font-size:.85em;margin-top:4px;line-height:1.5}
+.doc-close{position:fixed;top:20px;right:30px;z-index:110;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;font-size:1.4em;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all .2s}
+.doc-close:hover{background:rgba(255,255,255,0.25)}
+.doc-close.show{display:flex}
+.photo-card:hover{transform:scale(1.02)!important;box-shadow:0 4px 16px rgba(0,0,0,0.1)}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.fade-in-up{animation:fadeInUp .4s ease forwards}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:200;background:#a3b5a0;color:#fff;padding:12px 28px;border-radius:10px;font-weight:600;animation:fadeInUp .3s ease}
+.qr-btn{display:none;position:fixed;top:16px;right:20px;z-index:50;width:44px;height:44px;border-radius:50%;background:#fdfbf8;border:1px solid #d9cdbf;cursor:pointer;font-size:1.3em;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:all .2s}
+.qr-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,0.12);transform:scale(1.05)}
+.qr-btn.show{display:flex}
+.qr-modal{display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,0.5);align-items:center;justify-content:center}
+.qr-modal.show{display:flex}
+.qr-modal-inner{background:#fdfbf8;border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2)}
+.qr-modal-inner h3{color:#5d5248;margin-bottom:14px}
+.qr-modal-inner img{border-radius:8px}
+.qr-url{color:#a6988a;font-size:.8em;margin-top:10px;word-break:break-all}
+.qr-close{margin-top:14px;padding:8px 24px;border:none;border-radius:8px;background:#c49b8c;color:#fff;cursor:pointer;font-size:.9em}
+
+@media(max-width:600px){
+.wheel-wrapper{width:340px;height:340px}.spin-btn{width:66px;height:66px;font-size:1em}
+.info-grid{grid-template-columns:1fr}.header h1{font-size:1.5em}
+.doc-body .food-list,.tips-grid{grid-template-columns:1fr}
+.doc-body{padding:20px}#wheelCanvas{width:340px;height:340px}
+}
+</style>
+</head>
+<body>
+<div class="bg-particles"></div>
+<div class="main-container">
+<div class="header"><h1>冷门旅游城市大转盘</h1><p class="subtitle">发现中国那些被忽略的宝藏目的地</p></div>
+<div class="qr-btn" id="qrBtn" title="手机扫码打开">📱</div>
+<div class="qr-modal" id="qrModal">
+  <div class="qr-modal-inner">
+    <h3>手机扫码直接打开</h3>
+    <img id="qrImg" src="" alt="QR Code" style="width:200px;height:200px">
+    <p class="qr-url" id="qrUrl"></p>
+    <button class="qr-close" id="qrClose">关闭</button>
+  </div>
+</div>
+<div class="wheel-section">
+<div class="wheel-wrapper"><div class="pointer"></div><canvas id="wheelCanvas" width="520" height="520"></canvas><button class="spin-btn" id="spinBtn">开抽！</button></div>
+<button class="refresh-btn" id="refreshBtn">↻ 换一批城市</button>
+</div>
+<div class="result-panel" id="resultPanel">
+<div class="result-city-name" id="resultCityName"></div>
+<div class="result-province" id="resultProvince"></div>
+<div class="result-best-season" id="resultSeason"></div>
+<div class="info-grid">
+<div class="info-card fade-in-up" style="animation-delay:.1s"><h3>推荐景点</h3><ul id="attractionsList"></ul></div>
+<div class="info-card fade-in-up" style="animation-delay:.2s"><h3>特色美食</h3><ul id="foodList"></ul></div>
+</div>
+<div class="duration-section fade-in-up" style="animation-delay:.3s">
+<h3>选择游玩时长</h3>
+<div class="duration-options" id="durationOptions">
+<button class="duration-btn" data-days="1" data-nights="0">一天</button>
+<button class="duration-btn" data-days="2" data-nights="1">两天一晚</button>
+<button class="duration-btn selected" data-days="3" data-nights="2">三天两晚</button>
+<button class="duration-btn" data-days="4" data-nights="3">四天三晚</button>
+<button class="duration-btn" data-days="5" data-nights="4">五天四晚</button>
+<button class="duration-btn" data-days="7" data-nights="6">七天六晚</button>
+<button class="duration-btn custom" data-days="custom">自定义</button>
+</div>
+<div class="custom-days" id="customDays" style="display:none">
+<input type="number" id="customDaysInput" value="3" min="1" max="14"> <span>天</span>
+<input type="number" id="customNightsInput" value="2" min="0" max="13"> <span>晚</span>
+</div>
+<button class="generate-btn" id="generateBtn">生成行程计划</button>
+</div>
+</div>
+</div>
+<div class="doc-overlay" id="docOverlay"><button class="doc-close" id="docClose">✕</button><div class="doc-container" id="docContainer"></div></div>
+
+<script>
+(function(){'use strict';
+
+// ==================== IMAGE CARDS (click → Baidu Image Search) ====================
+function imgSearchUrl(keyword){return'https://cn.bing.com/images/search?q='+encodeURIComponent(keyword)}
+function photoCard(query,name,w,h,isFood){
+  var u=imgSearchUrl(query);
+  var ratio=h/w;var pad=ratio*100;
+  var bg=isFood?'#f0ebe3':'#e8e2d8';
+  var icon=isFood?'🍜':'📷';
+  return'<a href="'+u+'" target="_blank" class="photo-card" style="display:block;position:relative;width:100%;padding-bottom:'+pad.toFixed(1)+'%;background:'+bg+';border-radius:10px;overflow:hidden;text-decoration:none;cursor:pointer;transition:transform .15s;border:1px solid #e0d5c7">'+
+    '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">'+
+    '<span style="font-size:2.2em">'+icon+'</span>'+
+    '<span style="font-size:1em;font-weight:600;color:#b88574">'+name+'</span>'+
+    '<span style="font-size:.75em;color:#c4b8a8">点击查看实拍照片 (必应) →</span>'+
+    '</div></a>';
+}
+function photoCardFood(query,name,w,h){return photoCard(query+' 美食',name,w,h,true)}
+
+// ==================== CITY DATABASE (50 cities) ====================
+var CITIES=[
+
+// --- 云南 ---
+{name:'芒市',province:'云南',desc:'中缅边境傣族风情小城，浓郁的东南亚气息与热带风光交融，金塔林立、孔雀之乡。',enKW:'Mangshi Yunnan golden pagoda',
+ bestSeason:'11月-次年4月',
+ tips:{transit:'芒市机场通航昆明、成都；市区打车6元起步。',season:'旱季干爽舒适，避开5-10月雨季。','local':'傣族泼水节4月中旬最热闹；早晚温差大备薄外套。',budget:'住宿150-300元/晚，吃饭人均30-60元，整体消费偏低。'},
+ a:[{n:'勐焕大金塔',k:'Mangshi Golden Pagoda Yunnan',t:'地标'},{n:'树包塔',k:'tree wrapped pagoda Mangshi',t:'奇观'},{n:'芒市广场',k:'Mangshi central square',t:'休闲'},{n:'孔雀湖',k:'peacock lake park Yunnan',t:'自然'},{n:'菩提寺',k:'Buddhist temple Yunnan Mangshi',t:'古迹'},{n:'傣族古镇',k:'Dai ethnic village traditional',t:'民俗'},{n:'芒究水库',k:'Mangshi reservoir landscape',t:'自然'},{n:'风平佛塔',k:'Fengping pagoda Yunnan',t:'古迹'}],
+ f:[{n:'泡鲁达',k:'coconut milk dessert paoluda',d:'椰奶面包西米露甜品'},{n:'撒撇',k:'Dai lemon herb salad',d:'傣味柠檬苦肠凉拌'},{n:'傣味烤鱼',k:'Dai grilled fish lemongrass',d:'香茅草烤罗非鱼'},{n:'菠萝饭',k:'pineapple sticky rice Yunnan',d:'菠萝蒸糯米甜品'},{n:'火烧干巴',k:'Yunnan dried beef jerky',d:'炭烤牛肉干巴'},{n:'傣味鬼鸡',k:'Dai spicy chicken salad',d:'酸辣凉拌鸡丝'},{n:'酸扒菜',k:'Yunnan sour pickled vegetables',d:'傣家酸汤炖菜'},{n:'过手米线',k:'Achang rice noodles',d:'阿昌族特色米线'}]},
+
+{name:'腾冲',province:'云南',desc:'火山温泉之乡，秋日银杏金黄满地，90多座火山与丰富地热资源让这里成为天然疗养胜地。',enKW:'Tengchong Yunnan hot spring volcano',
+ bestSeason:'10月-12月（银杏金黄）',
+ tips:{transit:'驼峰机场通航多城；大理自驾约4小时。',season:'秋季银杏最佳，春季山花烂漫，冬季泡温泉最惬意。','local':'和顺古镇建议住一晚；热海温泉带泳衣；银杏村11月中下旬最美。',budget:'住宿200-500元/晚，温泉门票100-300元，吃饭人均40-80元。'},
+ a:[{n:'和顺古镇',k:'Heshun ancient town Yunnan',t:'古镇'},{n:'热海温泉',k:'Rehai hot spring Tengchong',t:'温泉'},{n:'火山地质公园',k:'Tengchong volcano park crater',t:'自然'},{n:'银杏村',k:'ginkgo village autumn golden',t:'秋景'},{n:'北海湿地',k:'Beihai wetland water grass',t:'自然'},{n:'国殇墓园',k:'Tengchong war memorial cemetery',t:'历史'},{n:'叠水河瀑布',k:'Dieshuihe waterfall urban',t:'自然'},{n:'云峰山',k:'Yunfeng mountain Taoist temple',t:'登山'}],
+ f:[{n:'大救驾',k:'Tengchong stir fried erkuai',d:'炒饵块传奇小吃'},{n:'饵丝',k:'Yunnan rice noodle soup breakfast',d:'细滑米制早餐'},{n:'稀豆粉',k:'yellow pea porridge Yunnan',d:'豌豆糊配油条'},{n:'土锅子',k:'Tengchong claypot stew meat',d:'陶土锅慢炖什锦'},{n:'松花糕',k:'pine pollen cake dessert',d:'松花粉制甜品'},{n:'棕包',k:'Tengchong palm shoot dish',d:'棕榈嫩芽菜肴'},{n:'青龙过海',k:'Yunnan sour soup fish herbs',d:'酸汤鱼片'},{n:'赶马肉',k:'tea horse road cured pork',d:'茶马古道风味肉'}]},
+
+{name:'建水',province:'云南',desc:'滇南文献名邦，千年古城藏中国最美古建筑群之一，《舌尖上的中国》带火的烧豆腐之城。',enKW:'Jianshui ancient town Yunnan China',
+ bestSeason:'全年皆宜，3-5月最佳',
+ tips:{transit:'昆明乘高铁约2小时；古城内步行游览。',season:'冬暖夏凉气候宜人。','local':'朱家花园请讲解更佳；双龙桥日出绝美；紫陶街可体验手工制陶。',budget:'消费亲民，住宿150-300元/晚，景点门票多在20-50元，吃饭人均25-50元。'},
+ a:[{n:'建水古城',k:'Jianshui ancient city street',t:'古城'},{n:'朱家花园',k:'Zhu Family Garden courtyard',t:'园林'},{n:'双龙桥',k:'Shuanglong bridge ancient stone',t:'古迹'},{n:'建水文庙',k:'Jianshui Confucius temple China',t:'古迹'},{n:'团山民居',k:'Tuanshan village Yunnan ancient',t:'古村'},{n:'燕子洞',k:'Swallow Cave karst Yunnan',t:'溶洞'},{n:'建水紫陶街',k:'Jianshui pottery workshop art',t:'手工'},{n:'朝阳楼',k:'Chaoyang tower ancient city gate',t:'地标'}],
+ f:[{n:'建水烧豆腐',k:'Jianshui grilled tofu famous',d:'《舌尖》同款烤豆腐'},{n:'汽锅鸡',k:'steam pot chicken Yunnan',d:'建水紫陶汽锅蒸鸡'},{n:'草芽米线',k:'rice noodles vegetable Yunnan',d:'草芽过桥米线'},{n:'燕窝酥',k:'birds nest pastry Chinese',d:'酥脆甜点'},{n:'狮子糕',k:'lion shaped rice cake',d:'米制传统糕点'},{n:'糯米灌大肠',k:'sticky rice stuffed sausage',d:'糯米灌肠'},{n:'凉勺粉',k:'cold rice jelly noodles',d:'豌豆凉粉'},{n:'曲江烤鸭',k:'Qujiang roast duck Yunnan',d:'滇味烤鸭'}]},
+
+{name:'普者黑',province:'云南',desc:'《三生三世》取景地，喀斯特峰林与万亩荷花湿地交织的世外桃源。',enKW:'Puzhehei karst landscape lotus Yunnan',
+ bestSeason:'6月-8月（荷花盛开）',
+ tips:{transit:'昆明乘高铁至普者黑站约1.5小时。',season:'夏季荷花万亩盛开是最大亮点；春季桃花盛开也很美。','local':'青龙山登顶拍全景；仙人洞村民宿体验好；夏季注意防晒防蚊。',budget:'住宿200-400元/晚，船票+门票约200元，吃饭人均40-70元。'},
+ a:[{n:'普者黑湖',k:'Puzhehei lake lotus flowers',t:'湖泊'},{n:'青龙山',k:'Qinglong mountain viewpoint China',t:'登山'},{n:'天鹅湖',k:'swan lake wetland scenery',t:'自然'},{n:'仙人洞村',k:'Xianrendong village Yunnan',t:'古村'},{n:'菜花箐',k:'canola flower field China',t:'花海'},{n:'摆龙湖',k:'Bailong lake reservoir',t:'湖泊'},{n:'舍得草场',k:'Shede grassland Yunnan',t:'草原'},{n:'西荒湿地',k:'wetland birds nature reserve',t:'自然'}],
+ f:[{n:'三七汽锅鸡',k:'notoginseng chicken soup',d:'三七药材炖鸡'},{n:'荷花宴',k:'lotus flower cuisine dish',d:'全荷主题宴席'},{n:'丘北辣椒',k:'Qiubei chili pepper dried',d:'云南名产辣椒'},{n:'腻脚酒',k:'Nijiao rice wine Yunnan',d:'当地特色米酒'},{n:'苗家酸汤鱼',k:'Miao sour soup fish Guizhou',d:'苗族酸汤鱼'},{n:'花米饭',k:'colorful sticky rice Yunnan',d:'五彩糯米饭'},{n:'腊排骨',k:'cured pork ribs Yunnan',d:'土法腌制排骨'},{n:'荷叶粑粑',k:'lotus leaf rice cake',d:'荷叶包粑粑'}]},
+
+{name:'普洱',province:'云南',desc:'世界茶源，景迈山千年古茶园已列入世界遗产名录，中国咖啡之都。',enKW:'Pu er tea mountain Yunnan China',
+ bestSeason:'11月-次年4月（干季舒适）',
+ tips:{transit:'普洱思茅机场通航昆明等城。',season:'干季凉爽适合户外，雨季（5-10月）湿热但茶山云雾缭绕别有韵味。','local':'景迈山看云海日出；那柯里走茶马古道；市区茶庄可品正宗普洱。',budget:'住宿150-350元/晚，多数景点免费，吃饭人均25-50元。'},
+ a:[{n:'景迈山',k:'Jingmai mountain tea plantation',t:'世遗'},{n:'普洱茶马古道',k:'tea horse road ancient path',t:'古道'},{n:'太阳河森林公园',k:'Taiyanghe forest park Yunnan',t:'自然'},{n:'糯岗古寨',k:'Nuogang ancient village tea',t:'古村'},{n:'那柯里',k:'Nakeli tea horse road town',t:'古镇'},{n:'梅子湖',k:'Meizi lake Pu er city',t:'湖泊'},{n:'普洱国家公园',k:'Pu er national park wildlife',t:'自然'},{n:'帝泊洱茶谷',k:'tea valley plantation Pu er',t:'茶园'}],
+ f:[{n:'普洱茶',k:'Pu erh tea traditional Chinese',d:'普洱茶品茗'},{n:'普洱小炒鸡',k:'stir fried chicken Pu er',d:'普洱风味炒鸡'},{n:'墨江紫米',k:'Mojiang purple rice grain',d:'紫米系列美食'},{n:'孟连米干',k:'Menglian rice noodle sheet',d:'傣味米干'},{n:'傣味烤鸡',k:'Dai grilled chicken Yunnan',d:'傣味香茅烤鸡'},{n:'普洱茶酥',k:'tea pastry dessert Pu er',d:'茶香糕点'},{n:'鸡枞油',k:'termite mushroom oil Yunnan',d:'鸡枞菌油'},{n:'野生蜂蜜',k:'wild honey Yunnan forest',d:'雨林野生蜂蜜'}]},
+
+{name:'临沧',province:'云南',desc:'世界佤乡，中国最后的原始部落所在地，滇红茶故乡。',enKW:'Lincang Yunnan Wa ethnic village',
+ bestSeason:'11月-次年4月',
+ tips:{transit:'临沧博尚机场有国内航班。',season:'干季出行方便；雨季部分山路难行。','local':'翁丁佤寨是必去文化体验地；冰岛村可品正宗冰岛茶；佤王宴需提前预约。',budget:'住宿150-300元/晚，景点门票多在30-60元，吃饭人均25-50元。'},
+ a:[{n:'沧源崖画',k:'Cangyuan cliff painting ancient',t:'古迹'},{n:'翁丁佤寨',k:'Wengding Wa village traditional',t:'民俗'},{n:'鲁史古镇',k:'Lushi ancient town Yunnan',t:'古镇'},{n:'百里长湖',k:'Baili Changhu lake scenery',t:'湖泊'},{n:'南滚河',k:'Nangunhe river nature reserve',t:'自然'},{n:'冰岛老寨',k:'Bingdao tea village Yunnan',t:'茶园'},{n:'五老山',k:'Wulao mountain forest',t:'登山'},{n:'司岗里',k:'Sigangli Wa cultural park',t:'文化'}],
+ f:[{n:'临沧佤王宴',k:'Wa king feast traditional',d:'佤族最高盛宴'},{n:'凤庆粑粑卷',k:'Fengqing rice cake roll',d:'米制粑粑卷'},{n:'云县火腿',k:'Yunxian ham Yunnan cured',d:'云南火腿'},{n:'耿马傣味',k:'Gengma Dai cuisine sour',d:'傣族风味菜'},{n:'双江冰岛茶',k:'Bingdao Pu erh tea',d:'顶级普洱茶'},{n:'永德芒果',k:'mango fruit Yunnan fresh',d:'热带芒果'},{n:'沧源鸡肉烂饭',k:'Wa chicken rice porridge',d:'佤族烂饭'},{n:'镇康酸扒菜',k:'sour pickled vegetable Yunnan',d:'酸味炖菜'}]},
+
+// --- 贵州 ---
+{name:'荔波',province:'贵州',desc:'地球腰带上的绿宝石，碧水青山间的喀斯特秘境，世界自然遗产。',enKW:'Libo karst Guizhou China blue water',
+ bestSeason:'4月-10月',
+ tips:{transit:'贵阳乘高铁约1.5小时。',season:'丰水期瀑布壮观；7-8月人多但水最美。','local':'小七孔建议一早去；水上森林可穿凉鞋玩水；茂兰适合徒步深度游。',budget:'住宿200-500元/晚，大小七孔联票约170元，吃饭人均30-60元。'},
+ a:[{n:'小七孔',k:'Xiaoqikong bridge Guizhou blue',t:'地标'},{n:'大七孔',k:'Daqikong gorge karst Guizhou',t:'峡谷'},{n:'茂兰自然保护区',k:'Maolan nature forest reserve',t:'自然'},{n:'瑶山古寨',k:'Yao ethnic mountain village',t:'民俗'},{n:'水春河',k:'Shuichun river rafting Guizhou',t:'漂流'},{n:'樟江风光带',k:'Zhangjiang river scenery China',t:'河流'},{n:'荔波古镇',k:'Libo ancient town night',t:'休闲'},{n:'鸳鸯湖',k:'Yuanyang lake karst cave',t:'湖泊'}],
+ f:[{n:'荔波酸肉',k:'Libo sour fermented pork',d:'腌制酸猪肉'},{n:'鱼包韭菜',k:'fish wrapped with chives',d:'韭菜包烤鱼'},{n:'瑶山鸡肉',k:'Yao mountain free range chicken',d:'瑶家土鸡'},{n:'水蕨菜',k:'water fern wild vegetable',d:'山野蕨菜'},{n:'五色花米饭',k:'colorful sticky rice natural',d:'天然染色糯米饭'},{n:'荔波米粉',k:'Libo rice noodles soup Guizhou',d:'当地米粉'},{n:'竹筒饭',k:'bamboo tube rice Guizhou',d:'竹筒蒸饭'},{n:'杨梅酒',k:'bayberry wine fruit Guizhou',d:'自酿杨梅酒'}]},
+
+{name:'镇远',province:'贵州',desc:'舞阳河S形穿城，千年古镇悬崖古建筑群令人叹为观止，"东方威尼斯"。',enKW:'Zhenyuan ancient town river Guizhou',
+ bestSeason:'4月-10月',
+ tips:{transit:'贵阳乘高铁约1.5小时。',season:'夏夜舞阳河最热闹；春秋古城漫步宜人。','local':'青龙洞必去；舞阳河夜游不可错过；石屏山拍古城全景。',budget:'住宿150-350元/晚，青龙洞门票60元，吃饭人均25-50元。'},
+ a:[{n:'镇远古城',k:'Zhenyuan old town river night',t:'古城'},{n:'舞阳河',k:'Wuyang river night cruise lights',t:'河流'},{n:'青龙洞',k:'Qinglong cave cliff temple',t:'古迹'},{n:'铁溪',k:'Tiexi stream valley Guizhou',t:'自然'},{n:'石屏山',k:'Shiping mountain ancient wall',t:'登山'},{n:'祝圣桥',k:'Zhusheng bridge old stone arch',t:'古迹'},{n:'和平村旧址',k:'Heping village historic site',t:'历史'},{n:'高过河',k:'Gaoguo river rafting adventure',t:'漂流'}],
+ f:[{n:'镇远道菜',k:'Zhenyuan pickled vegetables jar',d:'百年传承腌菜'},{n:'苗家酸汤',k:'Miao sour soup hot pot red',d:'苗族经典酸汤'},{n:'陈年道菜',k:'aged fermented vegetables dark',d:'陈年腌菜风味'},{n:'腊肉炒蕨粑',k:'bacon fern root cake wok',d:'腊肉蕨粑'},{n:'舞阳河鱼',k:'Wuyang river fresh fish dish',d:'河鲜美味'},{n:'黄糕粑',k:'yellow sticky rice cake sweet',d:'黄米糕'},{n:'米豆腐',k:'rice tofu cold salad chili',d:'米制凉粉'},{n:'社饭',k:'Miao festival rice dish',d:'苗族节庆米饭'}]},
+
+{name:'兴义',province:'贵州',desc:'万峰成林喀斯特奇观，《爸爸去哪儿》取景地，徐霞客赞叹"天下山峰何其多"。',enKW:'Xingyi Wanfenglin karst Guizhou',
+ bestSeason:'2月-4月、9月-11月',
+ tips:{transit:'兴义万峰林机场通航国内多城。',season:'2月油菜花开最美；秋季稻田金黄。','local':'万峰林骑行或乘观光车游览最佳；马岭河峡谷漂流刺激；纳灰村农家菜地道。',budget:'住宿200-400元/晚，万峰林门票+观光车约120元，吃饭人均30-60元。'},
+ a:[{n:'万峰林',k:'Wanfenglin karst peak forest',t:'奇观'},{n:'马岭河峡谷',k:'Malinghe gorge waterfall',t:'峡谷'},{n:'万峰湖',k:'Wanfeng lake water karst',t:'湖泊'},{n:'泥凼石林',k:'Nidang stone forest Guizhou',t:'自然'},{n:'刘氏庄园',k:'Liu Family manor Guizhou',t:'古迹'},{n:'纳灰村',k:'Nahui village countryside',t:'村落'},{n:'玉皇顶',k:'Yuhuang peak viewpoint',t:'登山'},{n:'鲁屯古镇',k:'Lutun ancient town Guizhou',t:'古镇'}],
+ f:[{n:'兴义羊肉粉',k:'Xingyi lamb rice noodle',d:'酱香羊肉粉'},{n:'刷把头',k:'Guizhou shuaba pork bun',d:'竹笋肉烧卖'},{n:'鸡肉汤圆',k:'chicken tangyuan dumpling',d:'咸味鸡肉汤圆'},{n:'饵块粑',k:'Guizhou erkuai rice cake',d:'糯米粑粑'},{n:'贞丰糯米饭',k:'Zhenfeng sticky rice meat',d:'贞丰糯米饭'},{n:'安龙剪粉',k:'Anlong rice noodle roll',d:'米皮卷粉'},{n:'苗家烤鱼',k:'Miao grilled fish Guizhou',d:'苗家风味烤鱼'},{n:'兴义酸菜',k:'Guizhou pickled vegetable',d:'贵州泡菜'}]},
+
+{name:'毕节',province:'贵州',desc:'百里杜鹃惊艳世界，织金洞冠绝天下，乌蒙大草原一望无际。',enKW:'Bijie Guizhou azalea flower sea',
+ bestSeason:'3月-5月（百里杜鹃花季）',
+ tips:{transit:'毕节飞雄机场通航国内多城；贵阳乘高铁约1小时。',season:'杜鹃花3月下旬-4月底最佳；织金洞全年可游。','local':'百里杜鹃景区建议安排一整天；织金洞内恒温14度带外套。',budget:'住宿150-300元/晚，百里杜鹃门票约150元，吃饭人均25-50元。'},
+ a:[{n:'百里杜鹃',k:'azalea flower mountain Guizhou',t:'花海'},{n:'织金洞',k:'Zhijin cave stalactite karst',t:'溶洞'},{n:'乌蒙大草原',k:'Wumeng grassland Guizhou horse',t:'草原'},{n:'草海',k:'Caohai lake birds wetland',t:'湿地'},{n:'九洞天',k:'Jiudongtian cave Guizhou',t:'溶洞'},{n:'慕俄格古城',k:'Muege ancient town Yi',t:'古城'},{n:'油杉河',k:'Yousha river valley Guizhou',t:'峡谷'},{n:'韭菜坪',k:'Jiucaiping mountain flower',t:'登山'}],
+ f:[{n:'毕节汤圆',k:'Bijie tangyuan sweet dumpling',d:'毕节特色汤圆'},{n:'织金发糕',k:'Zhijin fermented rice cake',d:'发酵米糕'},{n:'威宁火腿',k:'Weining cured ham Guizhou',d:'威宁火腿'},{n:'大方豆干',k:'Dafang dried tofu Guizhou',d:'大方豆制品'},{n:'赫章核桃',k:'Hezhang walnut fresh',d:'赫章特产核桃'},{n:'金沙羊肉粉',k:'Jinsha lamb rice noodle',d:'金沙羊肉粉'},{n:'纳雍烙锅',k:'Nayong hot plate grill',d:'烙锅烤肉'},{n:'黔西黄粑',k:'Qianxi yellow rice cake',d:'黄米粑'}]},
+
+// --- 吉林/黑龙江/辽宁 ---
+{name:'延吉',province:'吉林',desc:'东北最具异域风情的小城，满街双语招牌的朝鲜族美食天堂，不用出国体验地道韩国文化。',enKW:'Yanji Korean Chinese city food Jilin',
+ bestSeason:'全年皆宜，5-10月最舒适',
+ tips:{transit:'延吉朝阳川机场通航国内多城；长春乘高铁约3小时。',season:'夏季凉爽避暑、冬季可赏雪景。','local':'民俗园租韩服拍照；延大对面"网红墙"必打卡；水上市场早市最地道。',budget:'住宿200-400元/晚，吃饭人均40-80元，烤肉性价比极高。'},
+ a:[{n:'帽儿山',k:'Maoer mountain forest park Jilin',t:'登山'},{n:'延边大学',k:'Yanbian university campus building',t:'打卡'},{n:'中国朝鲜族民俗园',k:'Korean ethnic village traditional',t:'民俗'},{n:'延吉公园',k:'Yanji city park lake bridge',t:'休闲'},{n:'延吉大桥',k:'Yanji bridge night illumination',t:'地标'},{n:'水上市场',k:'Yanji morning market food stall',t:'市场'},{n:'布尔哈通河',k:'Buerhatong river scenery walk',t:'河流'},{n:'图们江边境',k:'Tumen river border China Korea',t:'边境'}],
+ f:[{n:'延吉冷面',k:'Korean cold noodle ice soup',d:'冰爽荞麦冷面'},{n:'石锅拌饭',k:'Korean bibimbap stone pot',d:'石锅拌饭'},{n:'延边烤肉',k:'Korean BBQ beef pork grill',d:'炭火烤肉'},{n:'辣白菜',k:'Korean kimchi fermented cabbage',d:'朝鲜族泡菜'},{n:'米肠',k:'Korean blood sausage sundae',d:'糯米血肠'},{n:'参鸡汤',k:'Korean ginseng chicken soup',d:'人参炖鸡'},{n:'打糕',k:'Korean rice cake tteok dessert',d:'朝鲜族打糕'},{n:'酱汤',k:'Korean soybean paste stew',d:'大酱汤'}]},
+
+{name:'丹东',province:'辽宁',desc:'中国最美边境城市，鸭绿江畔远眺朝鲜，海鲜肥美价廉，断桥见证历史。',enKW:'Dandong Yalu River border China Korea',
+ bestSeason:'5月-10月',
+ tips:{transit:'丹东浪头机场有航班；沈阳乘高铁约1.5小时。',season:'夏秋海鲜肥美；9-10月海鲜最佳季节。','local':'断桥必打卡；凤凰山险峻刺激；安东老街吃海鲜最地道。',budget:'住宿200-400元/晚，海鲜人均50-100元吃到撑，景点门票30-80元。'},
+ a:[{n:'鸭绿江断桥',k:'Yalu River broken bridge Dandong',t:'历史'},{n:'凤凰山',k:'Fenghuang mountain Dandong cliff',t:'登山'},{n:'虎山长城',k:'Hushan Great Wall section',t:'古迹'},{n:'抗美援朝纪念馆',k:'Korean War memorial Dandong',t:'历史'},{n:'锦江山公园',k:'Jinjiangshan park scenery',t:'休闲'},{n:'安东老街',k:'Andong old street Dandong',t:'街区'},{n:'月亮岛',k:'Moon island Yalu river park',t:'自然'},{n:'宽甸青山沟',k:'Qingshangou valley Liaoning',t:'自然'}],
+ f:[{n:'黄蚬子',k:'Dandong yellow clam seafood',d:'丹东特产黄蚬'},{n:'炒馇子',k:'fried cha corn noodle',d:'玉米面炒制'},{n:'焖子',k:'Dandong menzi fried jelly',d:'淀粉凉粉煎制'},{n:'朝鲜冷面',k:'Korean cold noodle Dandong',d:'边境风味冷面'},{n:'海鲜烧烤',k:'seafood barbecue grill fresh',d:'现捞现烤'},{n:'东港草莓',k:'Donggang strawberry fresh fruit',d:'丹东东港草莓'},{n:'飞蟹',k:'swimming crab steamed',d:'丹东特产飞蟹'},{n:'酸汤子',k:'sour corn noodle soup Manchu',d:'满族酸汤面'}]},
+
+{name:'漠河',province:'黑龙江',desc:'中国最北端，可赏极光、找北极石，冬季最低-40°C的极寒仙境，夏季有白夜奇观。',enKW:'Mohe Arctic Village China northernmost snow',
+ bestSeason:'12月-2月（极寒雪景）、6月-8月（白夜避暑）',
+ tips:{transit:'哈尔滨飞漠河约2小时，火车约20小时。',season:'冬季-30°C需充分防寒；夏季凉爽可看白夜。','local':'北极村"找北"是灵魂体验；白桦林拍照绝美；冬季有机会赏北极光。',budget:'住宿150-400元/晚，包车约500-800元/天可拼车，吃饭人均30-60元。'},
+ a:[{n:'北极村',k:'Arctic Village Mohe winter snow',t:'极北'},{n:'龙江第一湾',k:'Longjiang river bend scenic',t:'自然'},{n:'九曲十八弯',k:'Jiuqu Shibawan wetland Mohe',t:'自然'},{n:'白桦林',k:'birch forest winter snow China',t:'森林'},{n:'北红村',k:'Beihong village rural',t:'村落'},{n:'松苑原始森林公园',k:'Songyuan primeval forest',t:'森林'},{n:'五六火灾纪念馆',k:'Mohe fire memorial museum',t:'历史'},{n:'北极星广场',k:'North Star square Mohe night',t:'地标'}],
+ f:[{n:'铁锅炖',k:'Chinese iron pot stew meat',d:'大铁锅炖菜'},{n:'杀猪菜',k:'northeast pork stew feast',d:'东北年节菜'},{n:'大马哈鱼',k:'salmon fish dish Chinese',d:'黑龙江特产鱼'},{n:'冻梨',k:'frozen pear northeast China',d:'东北冻水果'},{n:'小鸡炖蘑菇',k:'chicken mushroom stew Chinese',d:'东北经典菜'},{n:'锅包肉',k:'guobaorou sweet sour pork',d:'东北锅包肉'},{n:'粘豆包',k:'sticky bean bun steamed',d:'黄米豆包'},{n:'野生蓝莓',k:'wild blueberry Arctic fruit',d:'大兴安岭蓝莓'}]},
+
+// --- 甘肃/宁夏 ---
+{name:'张掖',province:'甘肃',desc:'彩虹丹霞地貌惊艳世界，大自然的调色盘打翻于此，丝路重镇藏亚洲最大室内卧佛。',enKW:'Zhangye Danxia rainbow mountain China',
+ bestSeason:'6月-9月',
+ tips:{transit:'甘州机场有航班；兰州乘高铁约3小时。',season:'夏季丹霞色彩最艳丽；日出日落光影最佳。','local':'七彩丹霞下午去等日落；冰沟看形状七彩看颜色；大佛寺卧佛震撼。',budget:'住宿200-400元/晚，丹霞门票+观光车约75元，吃饭人均30-60元。'},
+ a:[{n:'七彩丹霞',k:'Zhangye Danxia colorful rainbow rock',t:'奇观'},{n:'冰沟丹霞',k:'Binggou Danxia rock formation',t:'奇观'},{n:'大佛寺',k:'Zhangye Giant Buddha reclining',t:'古迹'},{n:'马蹄寺',k:'Mati temple grottoes cliff',t:'石窟'},{n:'平山湖大峡谷',k:'Pingshanhu canyon grand',t:'峡谷'},{n:'张掖湿地公园',k:'Zhangye wetland park birds',t:'自然'},{n:'张掖鼓楼',k:'Zhangye drum tower ancient',t:'地标'},{n:'山丹军马场',k:'Shandan horse farm ranch',t:'草原'}],
+ f:[{n:'张掖搓鱼面',k:'hand rolled noodle Gansu',d:'手工搓制面'},{n:'牛肉小饭',k:'beef rice grain soup',d:'牛肉丁面汤'},{n:'炒拨拉',k:'stir fried offal iron plate',d:'铁板炒羊杂'},{n:'卷子鸡',k:'chicken roll noodle stew',d:'面卷炖鸡'},{n:'糊粕',k:'Gansu hupo soup bread',d:'麻花面筋汤'},{n:'张掖卤肉',k:'Gansu spiced braised pork',d:'卤制猪肉'},{n:'杏皮茶',k:'apricot tea drink Gansu',d:'杏皮熬制饮品'},{n:'临泽小枣',k:'Linze red date fruit',d:'特产红枣'}]},
+
+{name:'天水',province:'甘肃',desc:'陇上江南，麦积山石窟被誉为"东方雕塑陈列馆"，伏羲文化发源地。',enKW:'Tianshui Maijishan grottoes Gansu',
+ bestSeason:'4月-10月',
+ tips:{transit:'天水麦积山机场有航班；兰州乘高铁约1.5小时。',season:'夏秋最佳，避暑胜地。','local':'麦积山石窟建议请讲解；伏羲庙感受华夏文明起源。',budget:'住宿150-300元/晚，麦积山门票约90元，吃饭人均25-50元。'},
+ a:[{n:'麦积山石窟',k:'Maijishan grottoes Buddha cliff',t:'世遗'},{n:'伏羲庙',k:'Fuxi temple Tianshui ancient',t:'古迹'},{n:'仙人崖',k:'Xianren cliff Tianshui',t:'自然'},{n:'卦台山',k:'Guatai mountain Tianshui',t:'登山'},{n:'南郭寺',k:'Nanguo temple ancient Tianshui',t:'古迹'},{n:'玉泉观',k:'Yuquan Taoist temple Gansu',t:'古迹'},{n:'石门山',k:'Shimen mountain Tianshui',t:'自然'},{n:'大地湾遗址',k:'Dadiwan Neolithic site',t:'历史'}],
+ f:[{n:'天水呱呱',k:'Tianshui guagua buckwheat',d:'荞麦淀粉小吃'},{n:'天水杂烩',k:'Tianshui mixed stew',d:'什锦烩菜'},{n:'秦安肚丝汤',k:'Qinan tripe soup sour',d:'酸辣肚丝汤'},{n:'甘谷辣椒',k:'Gangu chili pepper red',d:'甘谷名产辣椒'},{n:'清水扁食',k:'Qingshui dumpling soup',d:'清水馄饨'},{n:'天水凉粉',k:'Tianshui liangfen jelly',d:'豌豆凉粉'},{n:'浆水面',k:'Gansu jiangshui noodle',d:'浆水酸汤面'},{n:'天水麻食',k:'Tianshui mashe noodle',d:'手工麻食面'}]},
+
+{name:'中卫',province:'宁夏',desc:'黄河与腾格里沙漠交汇处，沙漠星空此生必看，西北版"66号公路"所在地。',enKW:'Zhongwei Ningxia desert Yellow River China',
+ bestSeason:'5月-10月',
+ tips:{transit:'沙坡头机场有航班；银川自驾约2.5小时。',season:'春秋沙漠舒适；夏季炎热注意防晒。','local':'沙坡头体验滑沙骑骆驼；沙漠露营观星绝佳；66号公路自驾拍照。',budget:'住宿200-500元/晚，沙坡头门票+项目约200-400元，吃饭人均30-60元。'},
+ a:[{n:'沙坡头',k:'Shapotou desert camel riding',t:'沙漠'},{n:'腾格里沙漠',k:'Tengger desert camp starry sky',t:'沙漠'},{n:'66号公路',k:'route 66 road desert Zhongwei',t:'打卡'},{n:'高庙',k:'Gaomiao temple Zhongwei Ningxia',t:'古迹'},{n:'寺口子',k:'Sikouzi canyon rock formation',t:'峡谷'},{n:'通湖草原',k:'Tonghu grassland desert oasis',t:'草原'},{n:'中卫鼓楼',k:'Zhongwei drum tower landmark',t:'地标'},{n:'金沙岛',k:'Jinsha island lake Zhongwei',t:'湖泊'}],
+ f:[{n:'中卫蒿子面',k:'wormwood noodle Ningxia handmade',d:'蒿籽和面'},{n:'手抓羊肉',k:'Ningxia hand grabbed lamb meat',d:'宁夏手抓羊肉'},{n:'羊杂碎',k:'lamb offal soup spicy Ningxia',d:'羊杂汤'},{n:'炒糊饽',k:'stir fried hupo bread Ningxia',d:'炒饼丝'},{n:'硒砂瓜',k:'Ningxia watermelon field desert',d:'压砂西瓜'},{n:'中卫粉汤',k:'Zhongwei noodle soup lamb',d:'羊肉粉汤'},{n:'糖醋黄河鲤鱼',k:'Yellow River carp sweet sour',d:'黄河大鲤鱼'},{n:'枸杞',k:'Ningxia goji berry superfood',d:'宁夏枸杞'}]},
+
+// --- 湖北/湖南/江西 ---
+{name:'恩施',province:'湖北',desc:'中国"仙本那"，玻璃般透明的水上漂浮船，《国家地理》推荐必去土家族秘境。',enKW:'Enshi Grand Canyon floating boat Hubei',
+ bestSeason:'4月-10月',
+ tips:{transit:'许家坪机场有航班；武汉乘高铁约4小时。',season:'丰水期峡谷瀑布壮观；10月秋色最美。','local':'大峡谷安排一整天；屏山峡谷晴天拍漂浮船；土司城看土家族表演。',budget:'住宿200-400元/晚，大峡谷门票+索道约280元，吃饭人均30-60元。'},
+ a:[{n:'恩施大峡谷',k:'Enshi Grand Canyon cliff China',t:'峡谷'},{n:'腾龙洞',k:'Tenglong cave karst Enshi',t:'溶洞'},{n:'土司城',k:'Tusi castle Tujia architecture',t:'民俗'},{n:'鹿院坪',k:'Luyuanping hidden village valley',t:'古村'},{n:'屏山峡谷',k:'Pingshan canyon floating boat',t:'峡谷'},{n:'清江画廊',k:'Qingjiang river gallery cruise',t:'河流'},{n:'梭布垭石林',k:'Suobuya stone forest karst',t:'自然'},{n:'女儿城',k:'Enshi daughter city Tujia night',t:'休闲'}],
+ f:[{n:'恩施豆皮',k:'Enshi bean curd skin noodle',d:'豆皮面食'},{n:'合渣',k:'Hezha Tujia tofu residue',d:'土家豆腐渣'},{n:'土家酱香饼',k:'Tujia sauce flatbread pancake',d:'酱香千层饼'},{n:'格格',k:'Enshi steamed pork bamboo',d:'小笼蒸肉'},{n:'油茶汤',k:'Tujia oil tea soup traditional',d:'土家油茶'},{n:'柏杨豆干',k:'Baiyang dried tofu snack',d:'柏杨镇特产'},{n:'凤头姜',k:'Enshi ginger spice fresh',d:'来凤特产嫩姜'},{n:'葛仙米',k:'Enshi wild rice water grain',d:'珍稀水生米'}]},
+
+{name:'襄阳',province:'湖北',desc:'金庸笔下的侠义之城，三千年古城，一碗牛肉面让无数人专程驱车前往。',enKW:'Xiangyang ancient city wall Hubei',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'刘集机场有航班；武汉乘高铁约1.5小时。',season:'春秋气候温和最佳。','local':'古城墙可骑行游览；古隆中了解诸葛亮；唐城影视基地拍照出片。',budget:'住宿200-400元/晚，景点门票40-100元，吃饭人均25-60元。'},
+ a:[{n:'襄阳古城',k:'Xiangyang ancient city wall gate',t:'古城'},{n:'古隆中',k:'Gulongzhong Zhuge Liang cottage',t:'历史'},{n:'唐城',k:'Tang City film studio Xiangyang',t:'影视'},{n:'五道峡',k:'Wudaoxia valley waterfall',t:'峡谷'},{n:'春秋寨',k:'Chunqiu village ancient fortress',t:'古迹'},{n:'米公祠',k:'Mi Fu calligraphy memorial',t:'文化'},{n:'襄阳护城河',k:'Xiangyang moat scenery park',t:'休闲'},{n:'习家池',k:'Xijiachi garden landscape',t:'园林'}],
+ f:[{n:'襄阳牛肉面',k:'Xiangyang beef noodle spicy soup',d:'红油牛杂面'},{n:'宜城大虾',k:'Yicheng crawfish spicy pot',d:'宜城油焖大虾'},{n:'孔明菜',k:'pickled turnip vegetable Chinese',d:'大头菜腌制品'},{n:'襄阳缠蹄',k:'Xiangyang braised pig trotter',d:'缠丝猪蹄'},{n:'老河口锅盔',k:'Laohekou guokui sesame bread',d:'芝麻大饼'},{n:'金刚酥',k:'Xiangyang sesame pastry',d:'传统芝麻酥'},{n:'枣阳酸浆面',k:'Zaoyang sour noodle soup',d:'酸浆面'},{n:'保康香菇',k:'mushroom dish Chinese cuisine',d:'当地特产菌菇'}]},
+
+{name:'赣州',province:'江西',desc:'江南宋城，中国保存最完好的宋代城墙所在地，客家文化摇篮。',enKW:'Ganzhou ancient Song dynasty city Jiangxi',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'黄金机场有航班；南昌乘高铁约2小时。',season:'春秋气候宜人。','local':'宋代城墙全长3.6公里免费；通天岩"江南第一石窟"；郁孤台俯瞰章贡两江。',budget:'住宿150-300元/晚，多数景点免费或30-60元，吃饭人均25-50元。'},
+ a:[{n:'赣州古城墙',k:'Ganzhou Song dynasty city wall',t:'古迹'},{n:'通天岩',k:'Tongtianyan grotto Jiangxi Buddha',t:'石窟'},{n:'八境台',k:'Bajing tower Ganzhou landmark',t:'地标'},{n:'郁孤台',k:'Yugu terrace Ganzhou ancient',t:'古迹'},{n:'三百山',k:'Sanbaishan mountain Jiangxi',t:'自然'},{n:'古浮桥',k:'Ganzhou floating bridge river',t:'古迹'},{n:'灶儿巷',k:'Zaoer lane old street Ganzhou',t:'街区'},{n:'赣州博物馆',k:'Ganzhou museum Hakka culture',t:'博物馆'}],
+ f:[{n:'赣南小炒鱼',k:'Gannan stir fried fish spicy',d:'赣南名菜'},{n:'宁都三杯鸡',k:'three cup chicken soy basil',d:'三杯鸡起源地'},{n:'信丰萝卜饺',k:'radish dumpling steamed',d:'萝卜馅蒸饺'},{n:'南安腊鸭',k:'Nanan cured duck dried',d:'南安板鸭'},{n:'烫皮',k:'Ganzhou rice roll steamed',d:'米制烫皮'},{n:'兴国米粉鱼',k:'Xingguo rice noodle steamed fish',d:'粉蒸鱼'},{n:'酸枣糕',k:'wild jujube fruit cake',d:'赣南特产零食'},{n:'赣州酿豆腐',k:'Hakka stuffed tofu minced',d:'客家酿豆腐'}]},
+
+{name:'景德镇',province:'江西',desc:'千年瓷都，千年窑火不熄，可亲手拉坯制瓷，陶溪川文创街区夜晚最迷人。',enKW:'Jingdezhen porcelain ceramics art Jiangxi',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'景德镇罗家机场有航班；南昌乘高铁约2小时。',season:'春秋最宜。','local':'古窑民俗博览区看制瓷全流程；陶溪川夜景绝美；三宝村文艺范十足。',budget:'住宿200-500元/晚，陶艺体验100-300元，吃饭人均30-60元。'},
+ a:[{n:'古窑民俗博览区',k:'Jingdezhen ancient kiln porcelain',t:'博览'},{n:'陶溪川',k:'Taoxichuan ceramic art district',t:'文创'},{n:'瑶里古镇',k:'Yaoli ancient town Jiangxi',t:'古镇'},{n:'三宝村',k:'Sanbao village artist ceramic',t:'文艺'},{n:'中国陶瓷博物馆',k:'China ceramic museum Jingdezhen',t:'博物馆'},{n:'御窑厂',k:'Jingdezhen imperial kiln site',t:'历史'},{n:'浮梁古县衙',k:'Fuliang ancient county office',t:'古迹'},{n:'洪岩仙境',k:'Hongyan fairyland cave',t:'溶洞'}],
+ f:[{n:'碱水粑',k:'Jingdezhen alkaline rice cake',d:'碱水米糕'},{n:'冷粉',k:'cold rice noodle Jingdezhen',d:'拌冷粉'},{n:'瓷泥煨鸡',k:'clay baked chicken Jingdezhen',d:'瓷泥包裹烤鸡'},{n:'饺子粑',k:'Jingdezhen rice dumpling',d:'米粉饺子'},{n:'浮梁茶',k:'Fuliang green tea leaf',d:'浮梁绿茶'},{n:'乐平桃酥',k:'Leping walnut cookie pastry',d:'乐平桃酥'},{n:'景德镇煎饼',k:'Jingdezhen fried pancake',d:'瓷都煎饼'},{n:'荷包辣椒',k:'stuffed pepper Jiangxi cuisine',d:'酿辣椒'}]},
+
+{name:'上饶',province:'江西',desc:'中国最美乡村婺源加道教名山三清山，一幅天然山水田园画卷。',enKW:'Shangrao Wuyuan Sanqingshan Jiangxi China',
+ bestSeason:'3月-4月（婺源油菜花）、10月-11月（晒秋）',
+ tips:{transit:'三清山机场有航班；南昌乘高铁约1.5小时。',season:'春季油菜花、秋季晒秋是最佳时节。','local':'婺源建议包车游览各村落；三清山缆车上山节省体力；篁岭晒秋必看。',budget:'住宿200-500元/晚，三清山门票+索道约250元，婺源联票约210元。'},
+ a:[{n:'三清山',k:'Sanqingshan mountain granite Taoist',t:'登山'},{n:'婺源篁岭',k:'Huangling Wuyuan autumn harvest',t:'古村'},{n:'龟峰',k:'Guifeng mountain turtle rock',t:'自然'},{n:'灵山',k:'Lingshan mountain Shangrao',t:'登山'},{n:'鄱阳湖',k:'Poyang lake wetland birds',t:'湿地'},{n:'婺源江湾',k:'Jiangwan Wuyuan village',t:'古村'},{n:'婺源李坑',k:'Likeng Wuyuan water village',t:'古村'},{n:'葛仙山',k:'Gexian mountain Taoist Shangrao',t:'登山'}],
+ f:[{n:'上饶鸡腿',k:'Shangrao chicken drumstick',d:'上饶烤鸡腿'},{n:'弋阳年糕',k:'Yiyang rice cake sticky',d:'弋阳年糕'},{n:'婺源糊菜',k:'Wuyuan thick soup vegetable',d:'糊菜汤羹'},{n:'余干辣椒',k:'Yugan chili pepper spicy',d:'余干特产辣椒'},{n:'铅山烫粉',k:'Qianshan hot rice noodle',d:'铅山烫粉'},{n:'婺源汽糕',k:'Wuyuan steamed rice cake',d:'婺源蒸糕'},{n:'广丰马家柚',k:'Guangfeng pomelo fruit',d:'马家柚子'},{n:'万年贡米',k:'Wannian tribute rice grain',d:'万年贡米'}]},
+
+{name:'岳阳',province:'湖南',desc:'洞庭天下水，岳阳天下楼，范仲淹《岳阳楼记》里的江湖胜景。',enKW:'Yueyang Tower Dongting Lake Hunan',
+ bestSeason:'4月-10月',
+ tips:{transit:'岳阳三荷机场有航班；长沙乘高铁约40分钟。',season:'春夏洞庭湖烟波浩渺。','local':'岳阳楼建议下午去拍洞庭日落；君山岛品银针茶；汴河街夜市热闹。',budget:'住宿200-400元/晚，岳阳楼门票70元，吃饭人均30-60元。'},
+ a:[{n:'岳阳楼',k:'Yueyang Tower ancient pavilion lake',t:'地标'},{n:'洞庭湖',k:'Dongting lake misty water China',t:'湖泊'},{n:'君山岛',k:'Junshan island tea mountain',t:'岛屿'},{n:'汴河街',k:'Bianhe street night market',t:'街区'},{n:'张谷英村',k:'Zhangguying village ancient',t:'古村'},{n:'南湖',k:'Nanhu lake Yueyang park',t:'湖泊'},{n:'屈子祠',k:'Qu Yuan temple memorial',t:'古迹'},{n:'石牛寨',k:'Shiniuzhai glass bridge',t:'自然'}],
+ f:[{n:'岳阳三蒸',k:'Yueyang three steamed dishes',d:'三蒸系列'},{n:'洞庭银鱼',k:'Dongting lake whitebait fish',d:'洞庭银鱼'},{n:'君山银针',k:'Junshan silver needle tea',d:'君山名茶'},{n:'蝴蝶过河',k:'Yueyang fish hot pot dish',d:'鱼片火锅'},{n:'岳阳烧烤',k:'Yueyang barbecue night market',d:'岳阳宵夜'},{n:'岳阳虾尾',k:'crayfish tail spicy Hunan',d:'岳阳口味虾'},{n:'平江香干',k:'Pingjiang dried tofu spice',d:'平江豆干'},{n:'华容团子',k:'Huarong rice ball snack',d:'糯米团子'}]},
+
+{name:'郴州',province:'湖南',desc:'雾漫小东江仙境之美，丹霞与碧水交织的湘南秘境。',enKW:'Chenzhou Dongjiang lake mist Hunan',
+ bestSeason:'4月-10月（小东江晨雾最佳5-9月）',
+ tips:{transit:'郴州北湖机场有航班；长沙乘高铁约1.5小时。',season:'夏季晨雾最壮观、高椅岭丹霞+碧水最美。','local':'小东江清晨6-8点雾最美；高椅岭下午光线最佳；莽山可泡温泉。',budget:'住宿200-500元/晚，东江湖门票约85元，吃饭人均30-60元。'},
+ a:[{n:'东江湖',k:'Dongjiang lake mist morning fog',t:'湖泊'},{n:'高椅岭',k:'Gaoyiling Danxia red rock water',t:'丹霞'},{n:'莽山',k:'Mangshan mountain forest Hunan',t:'登山'},{n:'仰天湖',k:'Yangtian lake grassland Hunan',t:'草原'},{n:'飞天山',k:'Feitian mountain Danxia',t:'丹霞'},{n:'苏仙岭',k:'Suxianling mountain Chenzhou',t:'登山'},{n:'板梁古村',k:'Banliang ancient village',t:'古村'},{n:'万华岩',k:'Wanhuayan cave stalactite',t:'溶洞'}],
+ f:[{n:'栖凤渡鱼粉',k:'Qifengdu fish rice noodle',d:'鱼肉汤粉'},{n:'临武鸭',k:'Linwu duck braised Hunan',d:'临武酱板鸭'},{n:'东江三文鱼',k:'Dongjiang salmon sashimi',d:'东江虹鳟鱼'},{n:'桂阳血鸭',k:'Guiyang blood duck Hunan',d:'桂阳血鸭'},{n:'汝城板鸭',k:'Rucheng dried duck',d:'汝城板鸭'},{n:'资兴米粉鹅',k:'Zixing rice noodle goose',d:'资兴鹅肉粉'},{n:'安仁抖辣椒',k:'Anren spicy pepper dish',d:'抖辣椒'},{n:'永兴冰糖橙',k:'Yongxing orange sweet fruit',d:'永兴甜橙'}]},
+
+{name:'永州',province:'湖南',desc:'潇湘之源，柳宗元笔下"永州之野产异蛇"的千年古城，九嶷山舜帝陵所在。',enKW:'Yongzhou ancient city Jiuyi mountain Hunan',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'永州零陵机场有航班；长沙乘高铁约2小时。',season:'春秋最佳。','local':'零陵古城感受千年历史；九嶷山寻舜帝遗迹；阳明山杜鹃花季壮观。',budget:'住宿150-300元/晚，景点门票多在30-60元，吃饭人均25-50元。'},
+ a:[{n:'零陵古城',k:'Lingling ancient city Yongzhou',t:'古城'},{n:'九嶷山',k:'Jiuyi mountain Shun emperor',t:'登山'},{n:'阳明山',k:'Yangming mountain Hunan rhododendron',t:'登山'},{n:'浯溪碑林',k:'Wuxi stone tablet forest',t:'古迹'},{n:'柳子庙',k:'Liuzi temple Liu Zongyuan',t:'古迹'},{n:'舜皇山',k:'Shunhuang mountain forest',t:'自然'},{n:'上甘棠古村',k:'Shangrangtang ancient village',t:'古村'},{n:'潇湘源',k:'Xiaoxiang river source Hunan',t:'自然'}],
+ f:[{n:'永州血鸭',k:'Yongzhou blood duck famous',d:'永州血鸭'},{n:'东安鸡',k:'Dongan chicken sour spicy',d:'东安子鸡'},{n:'蓝山油茶',k:'Lanshan oil tea Hunan',d:'油茶'},{n:'江永香柚',k:'Jiangyong pomelo citrus',d:'江永柚子'},{n:'宁远酿豆腐',k:'Ningyuan stuffed tofu Hakka',d:'宁远酿豆腐'},{n:'道县米粉',k:'Daoxian rice noodle dish',d:'道县米粉'},{n:'双牌剁椒鱼',k:'chopped chili fish Hunan',d:'剁椒鱼'},{n:'祁阳米粉',k:'Qiyang rice noodle soup',d:'祁阳米粉'}]},
+
+// --- 福建 ---
+{name:'泉州',province:'福建',desc:'海上丝绸之路起点，世界遗产之城，闽南文化活态博物馆，遍地古迹和庙宇。',enKW:'Quanzhou Fujian maritime silk road world heritage',
+ bestSeason:'9月-11月（气候最宜人）',
+ tips:{transit:'泉州晋江机场有丰富航班。',season:'秋季最舒适，春季多雨、夏季湿热。','local':'西街美食遍地；开元寺双塔是城市地标；蟳埔村簪花围体验独特。',budget:'住宿200-500元/晚，多数景点免费或低价，吃饭人均30-70元。'},
+ a:[{n:'开元寺',k:'Kaiyuan temple pagoda Quanzhou',t:'世遗'},{n:'清源山',k:'Qingyuan mountain Laozi statue',t:'登山'},{n:'崇武古城',k:'Chongwu ancient city seaside',t:'古城'},{n:'泉州西街',k:'Quanzhou West Street food',t:'街区'},{n:'洛阳桥',k:'Luoyang bridge ancient stone',t:'古迹'},{n:'蟳埔村',k:'Xunpu village flower headdress',t:'民俗'},{n:'清净寺',k:'Qingjing mosque Quanzhou',t:'古迹'},{n:'关帝庙',k:'Guandi temple Quanzhou',t:'庙宇'}],
+ f:[{n:'面线糊',k:'Quanzhou misua noodle soup',d:'面线糊'},{n:'烧肉粽',k:'Fujian meat zongzi dumpling',d:'闽南肉粽'},{n:'土笋冻',k:'sea worm jelly Fujian',d:'海虫胶冻'},{n:'蚵仔煎',k:'oyster omelette Taiwanese',d:'海蛎煎'},{n:'润饼',k:'Fujian spring roll runbing',d:'闽南润饼'},{n:'牛肉羹',k:'Quanzhou beef soup thick',d:'牛肉羹'},{n:'姜母鸭',k:'ginger duck hot pot Fujian',d:'姜母鸭'},{n:'石花膏',k:'seaweed jelly dessert Fujian',d:'海藻凉粉'}]},
+
+{name:'漳州',province:'福建',desc:'土楼王国与滨海风光的完美结合，物价感人的闽南小城，南靖土楼世遗所在地。',enKW:'Zhangzhou Fujian Tulou earth building',
+ bestSeason:'9月-11月',
+ tips:{transit:'厦门乘高铁约30分钟即达。',season:'秋季最舒适，夏季炎热但适合海边。','local':'南靖土楼建议包车游览；云水谣古镇住一晚感受晨昏；东山岛海水不输三亚。',budget:'住宿150-400元/晚，土楼门票约90元，吃饭人均25-50元。'},
+ a:[{n:'南靖土楼',k:'Nanjing Tulou round earth building',t:'世遗'},{n:'云水谣',k:'Yunshuiyao ancient village banyan',t:'古镇'},{n:'火山岛',k:'Zhangzhou volcano island beach',t:'海岛'},{n:'东山岛',k:'Dongshan island beach Fujian',t:'海岛'},{n:'漳州古城',k:'Zhangzhou ancient city street',t:'古城'},{n:'田螺坑',k:'Tianluokeng Tulou cluster',t:'世遗'},{n:'六鳌半岛',k:'Liu ao peninsula windmill beach',t:'海滩'},{n:'白礁慈济宫',k:'Baijiao Ciji temple Fujian',t:'庙宇'}],
+ f:[{n:'漳州卤面',k:'Zhangzhou braised noodle soup',d:'卤面'},{n:'四果汤',k:'four fruit ice dessert Fujian',d:'四果汤'},{n:'面煎粿',k:'pan fried rice cake Fujian',d:'米浆煎粿'},{n:'猫仔粥',k:'Zhangzhou seafood porridge',d:'海鲜粥'},{n:'麻糍',k:'Fujian mochi rice cake',d:'糯米麻糍'},{n:'五香卷',k:'Fujian five spice meat roll',d:'五香肉卷'},{n:'沙茶面',k:'satay noodle soup Fujian',d:'沙茶面'},{n:'漳州豆花',k:'Zhangzhou tofu pudding',d:'豆花粉丝'}]},
+
+// --- 广东/广西 ---
+{name:'潮州',province:'广东',desc:'中国美食孤岛，一座为了吃也值得专程前往的古城，广济桥十八梭船廿四洲。',enKW:'Chaozhou ancient city cuisine Guangdong',
+ bestSeason:'9月-11月',
+ tips:{transit:'潮汕机场有丰富航班。',season:'秋季凉爽宜人。','local':'广济桥下午看"过河拆桥"；牌坊街吃遍潮州小吃；韩文公祠感受历史。',budget:'住宿200-500元/晚，多数景点免费，吃饭人均40-100元。'},
+ a:[{n:'潮州古城',k:'Chaozhou ancient street China',t:'古城'},{n:'广济桥',k:'Guangji bridge Chaozhou ancient',t:'地标'},{n:'开元寺',k:'Chaozhou Kaiyuan Buddhist temple',t:'古迹'},{n:'韩文公祠',k:'Hanwengong memorial temple',t:'古迹'},{n:'龙湖古寨',k:'Longhu ancient village Chaozhou',t:'古村'},{n:'凤凰天池',k:'Fenghuang tianchi mountain lake',t:'自然'},{n:'牌坊街',k:'Chaozhou Paifang street food',t:'街区'},{n:'饶平海湾',k:'Raoping bay beach Guangdong',t:'海滩'}],
+ f:[{n:'潮州牛肉丸',k:'Chaozhou beef ball handmade',d:'手打牛肉丸'},{n:'潮州肠粉',k:'Chaozhou rice roll noodle',d:'潮式肠粉'},{n:'粿条',k:'Chaozhou kuey teow noodle',d:'潮汕粿条'},{n:'砂锅粥',k:'Chaozhou claypot congee',d:'砂锅海鲜粥'},{n:'鸭母捻',k:'Chaozhou dessert dumpling',d:'甜品汤圆'},{n:'潮州牛杂',k:'Chaozhou beef offal soup',d:'潮汕牛杂'},{n:'春卷',k:'Chaozhou spring roll fried',d:'潮州春卷'},{n:'甘草水果',k:'Chaozhou fruit licorice',d:'甘草水果'}]},
+
+{name:'湛江',province:'广东',desc:'中国海鲜美食之都，隐秘的热带海滨城市，《隐秘的角落》取景地。',enKW:'Zhanjiang seafood tropical beach Guangdong',
+ bestSeason:'9月-12月',
+ tips:{transit:'湛江吴川机场有航班。',season:'秋冬海鲜最肥美；夏季炎热但适合海边。','local':'湖光岩是世界最大玛珥湖；东海岛海滩人少沙细；硇洲岛看火山地貌。',budget:'住宿200-500元/晚，海鲜人均60-150元，吃饭人均40-80元。'},
+ a:[{n:'湖光岩',k:'Huguangyan maar lake crater',t:'奇观'},{n:'特呈岛',k:'Techeng island beach Zhanjiang',t:'海岛'},{n:'东海岛',k:'Donghai island long beach',t:'海滩'},{n:'硇洲岛',k:'Naozhou island volcanic rock',t:'海岛'},{n:'金沙湾',k:'Jinsha bay beach Zhanjiang',t:'海滩'},{n:'赤坎老街',k:'Chikan old street Zhanjiang',t:'街区'},{n:'雷州古城',k:'Leizhou ancient city',t:'古城'},{n:'观海长廊',k:'Zhanjiang sea promenade',t:'休闲'}],
+ f:[{n:'炭烧生蚝',k:'charcoal grilled oyster Zhanjiang',d:'炭烧生蚝'},{n:'白切鸡',k:'Zhanjiang white cut chicken',d:'湛江白切鸡'},{n:'簸箕炊',k:'Zhanjiang steamed rice cake',d:'簸箕蒸米糕'},{n:'烂镬炒粉',k:'Zhanjiang wok fried noodle',d:'铁镬炒粉'},{n:'沙虫粥',k:'Zhanjiang sandworm congee',d:'沙虫粥'},{n:'虾饼',k:'shrimp cake fried Zhanjiang',d:'鲜虾饼'},{n:'泥丁粥',k:'Zhanjiang mudworm congee',d:'泥丁粥'},{n:'雷州白切狗',k:'Leizhou dog meat traditional',d:'雷州白切狗肉'}]},
+
+{name:'柳州',province:'广西',desc:'一碗螺蛳粉让全国人民上头，喀斯特山水环绕的工业之城，紫荆花季满城粉红。',enKW:'Liuzhou Guangxi karst river snail noodle',
+ bestSeason:'3月-4月（紫荆花季）、9月-11月',
+ tips:{transit:'柳州白莲机场有航班；桂林乘高铁约1小时。',season:'春季满城紫荆花开；秋季气候最舒适。','local':'柳江夜游看百里柳江画廊；程阳八寨看侗族风雨桥；马鞍山拍柳州全景。',budget:'住宿150-350元/晚，螺蛳粉一碗10-15元，吃饭人均25-50元。'},
+ a:[{n:'柳江夜游',k:'Liujiang river night cruise lights',t:'河流'},{n:'龙潭公园',k:'Longtan park karst lake Liuzhou',t:'自然'},{n:'程阳八寨',k:'Chengyang Dong village bridge',t:'民俗'},{n:'马鞍山',k:'Maanshan mountain Liuzhou view',t:'登山'},{n:'柳州工业博物馆',k:'Liuzhou industrial museum',t:'博物馆'},{n:'窑埠古镇',k:'Yaobu ancient town Liuzhou',t:'休闲'},{n:'融水雨卜苗寨',k:'Rongshui Miao village Guangxi',t:'民俗'},{n:'三江鼓楼',k:'Sanjiang Dong drum tower',t:'地标'}],
+ f:[{n:'柳州螺蛳粉',k:'Liuzhou river snail rice noodle',d:'柳州螺蛳粉'},{n:'柳州酸',k:'Liuzhou pickled sour vegetable',d:'酸味腌菜'},{n:'融水香鸭',k:'Rongshui fragrant duck',d:'融水香鸭'},{n:'三江油茶',k:'Sanjiang oil tea Dong ethnic',d:'侗族油茶'},{n:'牛瘪汤',k:'Guangxi beef bile soup',d:'侗族牛瘪汤'},{n:'柳州炒田螺',k:'stir fried river snail spicy',d:'炒田螺'},{n:'柳州米粉',k:'Liuzhou rice noodle soup',d:'柳州米粉'},{n:'融安金桔',k:'Rongan kumquat fruit',d:'融安金桔'}]},
+
+{name:'北海',province:'广西',desc:'中国最美海岛之一，性价比超高的滨海度假地，银滩沙细如面粉。',enKW:'Beihai Silver Beach Weizhou island Guangxi',
+ bestSeason:'4月-6月、9月-11月',
+ tips:{transit:'北海福成机场有航班。',season:'避开7-8月台风季；春秋海水最美、天气最宜。','local':'涠洲岛建议住2晚；银滩日出日落都美；老街骑楼拍照出片。',budget:'住宿200-600元/晚，涠洲岛船票+门票约300元，吃饭人均40-80元。'},
+ a:[{n:'银滩',k:'Beihai Silver Beach white sand',t:'海滩'},{n:'涠洲岛',k:'Weizhou island volcano beach China',t:'海岛'},{n:'北海老街',k:'Beihai old street arcade',t:'街区'},{n:'冠头岭',k:'Guantouling ridge sea view',t:'自然'},{n:'金海湾红树林',k:'mangrove forest Beihai',t:'自然'},{n:'海洋之窗',k:'Beihai ocean aquarium',t:'展览'},{n:'侨港风情街',k:'Qiaogang street Beihai food',t:'街区'},{n:'星岛湖',k:'Xingdao lake Beihai scenic',t:'湖泊'}],
+ f:[{n:'沙虫',k:'Beihai sandworm seafood dish',d:'沙虫海鲜'},{n:'虾饼',k:'Beihai shrimp cake fried snack',d:'炸虾饼'},{n:'海鲜粉',k:'Beihai seafood rice noodle',d:'海鲜汤粉'},{n:'猪脚粉',k:'pig trotter rice noodle Guangxi',d:'猪脚粉'},{n:'糖水',k:'Beihai sweet soup dessert',d:'广式糖水'},{n:'花蟹粥',k:'crab congee Beihai seafood',d:'花蟹粥'},{n:'越南卷粉',k:'Vietnamese rice roll Beihai',d:'越南卷粉'},{n:'烤生蚝',k:'grilled oyster garlic Beihai',d:'蒜蓉烤生蚝'}]},
+
+{name:'百色',province:'广西',desc:'中越边境山水画廊，亚洲第一大跨国瀑布德天瀑布（靖西）所在地，红色革命老区。',enKW:'Baise Guangxi Detian waterfall border',
+ bestSeason:'4月-10月',
+ tips:{transit:'百色巴马机场有航班；南宁乘高铁约2小时。',season:'丰水期瀑布壮观。','local':'德天瀑布建议雨季去水量大；鹅泉清晨最美；旧州古镇买绣球当伴手礼。',budget:'住宿150-350元/晚，德天瀑布门票+观光车约140元，吃饭人均25-50元。'},
+ a:[{n:'德天瀑布',k:'Detian waterfall China Vietnam border',t:'瀑布'},{n:'通灵大峡谷',k:'Tongling grand canyon waterfall',t:'峡谷'},{n:'鹅泉',k:'Goose spring clear water Guangxi',t:'泉池'},{n:'旧州古镇',k:'Jiuzhou ancient town Guangxi',t:'古镇'},{n:'百色起义纪念馆',k:'Baise uprising memorial red',t:'历史'},{n:'渠洋湖',k:'Quyang lake karst Guangxi',t:'湖泊'},{n:'田州古城',k:'Tianzhou ancient city',t:'古城'},{n:'古龙山大峡谷',k:'Gulongshan canyon rafting',t:'漂流'}],
+ f:[{n:'百色芒果',k:'Baise mango tropical fruit',d:'百色芒果'},{n:'隆林黑山羊',k:'Longlin black goat meat',d:'黑山羊肉'},{n:'德保猪血肠',k:'Debao blood sausage Guangxi',d:'猪血肠'},{n:'靖西酸嘢',k:'Jingxi pickled sour fruit',d:'酸味水果'},{n:'田东柠檬鸭',k:'Tiandong lemon duck dish',d:'柠檬鸭'},{n:'西林麻鸭',k:'Xilin shelduck roast',d:'西林麻鸭'},{n:'乐业核桃',k:'Leye walnut fresh fruit',d:'乐业核桃'},{n:'百色米粉',k:'Baise rice noodle soup',d:'百色米粉'}]},
+
+{name:'防城港',province:'广西',desc:'北部湾畔的边境海滨城市，不出国也能感受越南风情，京族三岛渔村风情独特。',enKW:'Fangchenggang border beach Vietnam Guangxi',
+ bestSeason:'4月-6月、9月-11月',
+ tips:{transit:'南宁乘高铁约1小时。',season:'避开7-8月台风季。','local':'万尾金滩京族拉大网值得一看；东兴口岸感受边贸风情；十万大山适合徒步。',budget:'住宿150-350元/晚，海鲜人均50-100元，多数景点免费，吃饭人均30-60元。'},
+ a:[{n:'万尾金滩',k:'Wanwei golden beach Guangxi',t:'海滩'},{n:'江山半岛',k:'Jiangshan peninsula beach',t:'半岛'},{n:'东兴口岸',k:'Dongxing border gate Vietnam',t:'边境'},{n:'簕山古渔村',k:'Leshan ancient fishing village',t:'渔村'},{n:'十万大山',k:'Shiwandashan mountain forest',t:'登山'},{n:'白浪滩',k:'Bailang beach surf Fangchenggang',t:'海滩'},{n:'京族三岛',k:'Jing ethnic island fishing',t:'民俗'},{n:'北仑河口',k:'Beilun river mouth border',t:'自然'}],
+ f:[{n:'海鲜粉',k:'Fangchenggang seafood noodle',d:'海鲜煮粉'},{n:'风吹饼',k:'wind blown rice cracker',d:'风吹米饼'},{n:'越南春卷',k:'Vietnamese spring roll fresh',d:'越式春卷'},{n:'屈头蛋',k:'Vietnamese balut egg dish',d:'越南毛鸭蛋'},{n:'京族鱼露',k:'Jing ethnic fish sauce',d:'京族鱼露'},{n:'防城港大蚝',k:'Fangchenggang oyster fresh',d:'防城港生蚝'},{n:'沙虫干',k:'dried sandworm seafood',d:'沙虫干货'},{n:'芒街椰蓉',k:'coconut dessert Vietnamese',d:'椰蓉糕点'}]},
+
+// --- 四川 ---
+{name:'宜宾',province:'四川',desc:'万里长江第一城，蜀南竹海《卧虎藏龙》同款竹林，五粮液故乡。',enKW:'Yibin bamboo sea Sichuan Yangtze River',
+ bestSeason:'4月-6月、9月-11月',
+ tips:{transit:'宜宾五粮液机场有航班；成都乘高铁约1.5小时。',season:'春夏竹海翠绿。','local':'蜀南竹海建议住一晚；李庄古镇白肉是灵魂；兴文石海看天坑溶洞。',budget:'住宿200-400元/晚，竹海门票约100元，吃饭人均30-60元。'},
+ a:[{n:'蜀南竹海',k:'Shunan bamboo forest sea China',t:'森林'},{n:'兴文石海',k:'Xingwen stone sea karst sinkhole',t:'自然'},{n:'李庄古镇',k:'Lizhuang ancient town Yangtze',t:'古镇'},{n:'翠屏山',k:'Cuiping mountain Yibin temple',t:'登山'},{n:'僰王山',k:'Bowang mountain Bo ethnic',t:'自然'},{n:'五粮液酒文化博览馆',k:'Wuliangye liquor museum',t:'博物馆'},{n:'夕佳山民居',k:'Xijiashan ancient residence',t:'古迹'},{n:'宜宾长江大桥',k:'Yibin Yangtze bridge night',t:'地标'}],
+ f:[{n:'宜宾燃面',k:'Yibin burning noodle spicy',d:'宜宾燃面'},{n:'李庄白肉',k:'Lizhuang white pork sliced thin',d:'李庄白肉'},{n:'竹海全竹宴',k:'bamboo banquet all bamboo dishes',d:'全竹宴'},{n:'南溪豆腐干',k:'Nanxi dried tofu Sichuan',d:'南溪豆腐干'},{n:'碎米芽菜',k:'Sichuan pickled mustard green',d:'宜宾芽菜'},{n:'宜宾糟蛋',k:'Yibin fermented egg dish',d:'糟蛋'},{n:'柏溪潮糕',k:'Yibin steamed rice cake',d:'传统潮糕'},{n:'沙河豆腐',k:'Shahe tofu dish Sichuan',d:'沙河豆腐宴'}]},
+
+{name:'自贡',province:'四川',desc:'千年盐都、恐龙之乡、中国灯城，川菜中最火辣的味觉高地。',enKW:'Zigong Sichuan dinosaur lantern salt',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'自贡无机场，成都乘高铁约1小时。',season:'春节灯会期间人最多但也最精彩。','local':'恐龙博物馆世界级水准；燊海井看古法制盐；仙市古镇品味慢生活。',budget:'住宿200-400元/晚，恐龙博物馆门票60元，吃饭人均30-70元。'},
+ a:[{n:'恐龙博物馆',k:'Zigong dinosaur museum fossil China',t:'博物馆'},{n:'盐业历史博物馆',k:'Zigong salt history museum',t:'博物馆'},{n:'燊海井',k:'Shenhai well salt production',t:'古迹'},{n:'彩灯公园',k:'Zigong lantern park festival',t:'展览'},{n:'仙市古镇',k:'Xianshi ancient town Sichuan',t:'古镇'},{n:'花海',k:'Zigong flower sea park',t:'花海'},{n:'自贡方特恐龙王国',k:'Zigong Fantawild dinosaur park',t:'乐园'},{n:'王爷庙',k:'Wangye temple Zigong ancient',t:'古迹'}],
+ f:[{n:'冷吃兔',k:'Zigong cold spicy rabbit dish',d:'冷吃兔'},{n:'富顺豆花',k:'Fushun tofu pudding Sichuan',d:'富顺豆花'},{n:'水煮牛肉',k:'Sichuan water boiled beef spicy',d:'水煮牛肉起源地'},{n:'火边子牛肉',k:'Zigong fire edge beef jerky',d:'火焰牛肉干'},{n:'自贡蘸水菜',k:'Zigong dipping sauce dish',d:'蘸水菜'},{n:'仔姜美蛙',k:'Sichuan ginger frog dish',d:'仔姜蛙'},{n:'鲜锅兔',k:'Zigong fresh pot rabbit spicy',d:'鲜锅兔'},{n:'牛佛烘肘',k:'Niufo braised pork elbow',d:'红烧蹄髈'}]},
+
+{name:'雅安',province:'四川',desc:'雨城雅安，大熊猫的故乡，川西最美观景平台的入口城市。',enKW:'Yaan Sichuan panda base Mengding mountain tea',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'成都乘高铁约1小时即达。',season:'春秋最佳，夏季多雨但别有韵味。','local':'碧峰峡看熊猫比成都人少太多；蒙顶山茶文化发源地品茶；达瓦更扎看日出云海。',budget:'住宿150-400元/晚，碧峰峡门票约120元，吃饭人均30-60元。'},
+ a:[{n:'碧峰峡',k:'Bifengxia panda base Sichuan',t:'自然'},{n:'蒙顶山',k:'Mengding mountain tea plantation',t:'茶园'},{n:'上里古镇',k:'Shangli ancient town Sichuan',t:'古镇'},{n:'达瓦更扎',k:'Dawagengzha mountain sunrise',t:'登山'},{n:'牛背山',k:'Niubei mountain sea cloud view',t:'登山'},{n:'二郎山喇叭河',k:'Erlang mountain Labahe river',t:'自然'},{n:'神木垒',k:'Shenmulei forest grassland',t:'森林'},{n:'夹金山',k:'Jiajin mountain snow Sichuan',t:'雪山'}],
+ f:[{n:'雅鱼',k:'Yaan fish local specialty',d:'雅安特产鱼'},{n:'哒哒面',k:'Dada hand pulled noodle',d:'手工宽面'},{n:'汉源花椒',k:'Hanyuan Sichuan pepper spice',d:'汉源贡椒'},{n:'荥经棒棒鸡',k:'Yingjing bangbang chicken',d:'棒棒鸡'},{n:'蒙顶山茶',k:'Mengding green tea Chinese',d:'蒙顶山名茶'},{n:'砂锅雅鱼',k:'clay pot Yaan fish soup',d:'砂锅煲雅鱼'},{n:'名山羊肉',k:'Mingshan lamb soup Sichuan',d:'名山羊肉汤'},{n:'硗碛藏餐',k:'Qiaoqi Tibetan food yak',d:'藏族风味餐'}]},
+
+{name:'攀枝花',province:'四川',desc:'中国阳光花城，冬天20度的避寒胜地，热带水果吃到饱，全年日照2700小时。',enKW:'Panzhihua Sichuan sunshine city tropical fruit',
+ bestSeason:'10月-次年3月（避寒胜地）',
+ tips:{transit:'攀枝花保安营机场有航班。',season:'冬季温暖干燥最适合避寒；夏季较热。','local':'格萨拉看高山草甸；米易梯田层次分明；冬天来这里穿短袖。',budget:'住宿200-400元/晚，芒果季水果极便宜，吃饭人均30-60元。'},
+ a:[{n:'格萨拉',k:'Gezala grassland Sichuan',t:'草原'},{n:'二滩水电站',k:'Ertan dam reservoir Sichuan',t:'工程'},{n:'米易梯田',k:'Miyi rice terrace Sichuan',t:'梯田'},{n:'红格温泉',k:'Hongge hot spring Panzhihua',t:'温泉'},{n:'阿署达',k:'Asuda Yi ethnic village',t:'民俗'},{n:'花舞人间',k:'flower park garden Panzhihua',t:'花海'},{n:'颛顼龙洞',k:'Zhuanxu dragon cave karst',t:'溶洞'},{n:'三线建设博物馆',k:'Panzhihua industrial museum',t:'博物馆'}],
+ f:[{n:'攀枝花芒果',k:'Panzhihua mango tropical fruit',d:'攀枝花芒果'},{n:'羊肉米线',k:'Panzhihua lamb rice noodle',d:'羊肉米线'},{n:'铜火锅',k:'copper hot pot Sichuan',d:'铜质火锅'},{n:'坨坨鸡',k:'Sichuan Yi ethnic chicken',d:'彝族坨坨鸡'},{n:'盐边牛肉',k:'Yanbian cured beef Sichuan',d:'盐边牛肉'},{n:'爬沙虫',k:'Panzhihua fried insect snack',d:'油炸爬沙虫'},{n:'米易枇杷',k:'Miyi loquat fruit fresh',d:'米易枇杷'},{n:'仁和石榴',k:'Renhe pomegranate fruit',d:'仁和石榴'}]},
+
+// --- 陕西/山西 ---
+{name:'延安',province:'陕西',desc:'革命圣地之外更有壮阔的黄河壶口瀑布和黄土高原风光，乾坤湾如巨龙盘踞。',enKW:'Yanan Yan an Hukou Waterfall loess Shaanxi',
+ bestSeason:'4月-10月',
+ tips:{transit:'延安南泥湾机场有航班；西安乘高铁约2.5小时。',season:'春秋最佳；壶口瀑布夏秋水量大。','local':'壶口瀑布建议山西侧观看更壮观；乾坤湾走沿黄公路；枣园红色研学。',budget:'住宿200-400元/晚，壶口瀑布门票约90元，吃饭人均30-60元。'},
+ a:[{n:'壶口瀑布',k:'Hukou Waterfall Yellow River raging',t:'瀑布'},{n:'乾坤湾',k:'Qiankun bend Yellow River loop',t:'奇观'},{n:'宝塔山',k:'Baota mountain pagoda Yanan',t:'地标'},{n:'枣园',k:'Zaoyuan revolution site Yanan',t:'历史'},{n:'杨家岭',k:'Yangjialing revolution memorial',t:'历史'},{n:'甘泉大峡谷',k:'Ganquan grand canyon rainbow',t:'峡谷'},{n:'黄帝陵',k:'Yellow Emperor mausoleum China',t:'古迹'},{n:'雨岔大峡谷',k:'Yucha canyon sandstone China',t:'峡谷'}],
+ f:[{n:'延安沾沾',k:'Yanan spicy dip skewer hotpot',d:'延安沾沾'},{n:'洋芋擦擦',k:'potato shredded steamed Shaanxi',d:'洋芋擦擦'},{n:'荞面饸饹',k:'buckwheat noodle Shaanxi',d:'荞面饸饹'},{n:'炖羊肉',k:'Yanan lamb stew Shaanxi',d:'陕北炖羊肉'},{n:'子长煎饼',k:'Zichang pancake Shaanxi',d:'子长煎饼'},{n:'油糕',k:'fried rice cake Shaanxi',d:'陕北油糕'},{n:'延安凉粉',k:'Yanan liangfen jelly',d:'延安凉粉'},{n:'钱钱饭',k:'Yanan bean rice porridge',d:'钱钱饭'}]},
+
+{name:'运城',province:'山西',desc:'关公故里，中国死海七彩盐湖，五千年华夏文明源头，全国重点文保单位之首。',enKW:'Yuncheng Shanxi Guandi temple salt lake',
+ bestSeason:'4月-6月、9月-11月',
+ tips:{transit:'运城张孝机场有航班；西安乘高铁约1小时。',season:'春秋最佳；盐湖夏季色彩最艳丽。','local':'关帝庙是天下关庙之祖；永乐宫壁画无价之宝；盐湖"中国死海"可漂浮。',budget:'住宿150-300元/晚，关帝庙门票60元，吃饭人均25-50元。'},
+ a:[{n:'解州关帝庙',k:'Guan Di temple Yuncheng Shanxi',t:'古迹'},{n:'永乐宫',k:'Yongle Palace mural painting',t:'古迹'},{n:'鹳雀楼',k:'Guanque tower ancient Yuncheng',t:'地标'},{n:'盐湖',k:'Yuncheng salt lake colorful China',t:'奇观'},{n:'普救寺',k:'Pujiu temple love story Shanxi',t:'古迹'},{n:'李家大院',k:'Li family courtyard Shanxi',t:'古迹'},{n:'五老峰',k:'Wulao peak mountain Shanxi',t:'登山'},{n:'飞云楼',k:'Feiyun tower ancient wooden',t:'古迹'}],
+ f:[{n:'运城大盘鸡',k:'Yuncheng big plate chicken',d:'运城大盘鸡'},{n:'解州羊肉泡',k:'Xiezhou lamb soup bread',d:'解州羊肉泡'},{n:'闻喜煮饼',k:'Wenxi boiled cake dessert',d:'闻喜煮饼'},{n:'芮城麻片',k:'Ruicheng sesame candy',d:'芮城麻片'},{n:'万荣拌菜',k:'Wanrong mixed vegetable dish',d:'万荣拌菜'},{n:'新绛火锅',k:'Xinjiang hot pot Shanxi',d:'新绛铜火锅'},{n:'垣曲炒祺',k:'Yuanqu fried dough snack',d:'垣曲炒祺'},{n:'永济牛肉饺子',k:'Yongji beef dumpling',d:'永济牛肉饺'}]},
+
+{name:'大同',province:'山西',desc:'北魏古都，云冈石窟和悬空寺两大世界遗产的震撼之地，中国煤都蝶变文旅名城。',enKW:'Datong Yungang Grottoes Hanging Temple Shanxi',
+ bestSeason:'5月-10月',
+ tips:{transit:'大同云冈机场有航班；北京乘高铁约2.5小时。',season:'夏秋最佳，冬季寒冷但雪景壮美。','local':'云冈石窟建议请讲解；悬空寺一早去排队；古城墙夜景超美。',budget:'住宿200-400元/晚，云冈石窟门票120元，吃饭人均30-60元。'},
+ a:[{n:'云冈石窟',k:'Yungang Grottoes Buddha cave Datong',t:'世遗'},{n:'悬空寺',k:'Hanging Temple cliff Datong China',t:'奇观'},{n:'华严寺',k:'Huayan temple Datong Liao dynasty',t:'古迹'},{n:'大同古城',k:'Datong ancient city wall night',t:'古城'},{n:'恒山',k:'Mount Heng Shanxi sacred mountain',t:'登山'},{n:'九龙壁',k:'Datong nine dragon screen wall',t:'古迹'},{n:'大同市博物馆',k:'Datong museum Shanxi culture',t:'博物馆'},{n:'土林',k:'Datong earth forest landscape',t:'自然'}],
+ f:[{n:'大同刀削面',k:'Datong knife cut noodle soup',d:'刀削面'},{n:'大同兔头',k:'Datong rabbit head spicy snack',d:'大同兔头'},{n:'浑源凉粉',k:'Hunyuan liangfen jelly',d:'浑源凉粉'},{n:'烧麦',k:'Datong shaomai dumpling',d:'大同烧麦'},{n:'油炸糕',k:'Datong fried cake dessert',d:'炸油糕'},{n:'羊杂割',k:'Datong lamb offal soup',d:'羊杂汤'},{n:'莜面栲栳',k:'Datong oat noodle roll',d:'莜面栲栳'},{n:'黄米油糕',k:'Datong millet cake fried',d:'黄米炸糕'}]},
+
+// --- Additional cities 41-50 ---
+{name:'伊春',province:'黑龙江',desc:'中国林都，秋天五彩林海宛如童话世界，天然大氧吧，红松故乡。',enKW:'Yichun forest autumn color Heilongjiang',
+ bestSeason:'9月下旬-10月中旬（五花山秋色）',
+ tips:{transit:'伊春林都机场有航班。',season:'秋季五花山是最大亮点；夏季避暑凉爽。','local':'汤旺河石林奇石林立；五营森林公园红松参天；秋季自驾最美森林公路。',budget:'住宿150-350元/晚，森林公园门票多在50-100元，吃饭人均30-50元。'},
+ a:[{n:'汤旺河石林',k:'Tangwanghe stone forest Yichun',t:'奇观'},{n:'五营森林公园',k:'Wuying forest park pine tree',t:'森林'},{n:'上甘岭溪水',k:'Shangangling stream Yichun',t:'自然'},{n:'红星火山岩',k:'Hongxing volcanic rock Yichun',t:'自然'},{n:'茅兰沟',k:'Maolangou valley waterfall',t:'峡谷'},{n:'兴安森林公园',k:'Xing an forest park autumn',t:'森林'},{n:'美溪回龙湾',k:'Meixi Huilong bay wetland',t:'湿地'},{n:'金山鹿苑',k:'Jinshan deer park Yichun',t:'自然'}],
+ f:[{n:'伊春蓝莓',k:'Yichun wild blueberry fresh',d:'伊春蓝莓'},{n:'林区炖菜',k:'northeast forest stew pot',d:'林区铁锅炖'},{n:'山野菜',k:'wild mountain vegetable dish',d:'山野菜'},{n:'松仁玉米',k:'pine nut corn dish Chinese',d:'松仁玉米'},{n:'杀猪菜',k:'Heilongjiang pork feast stew',d:'东北杀猪菜'},{n:'狍子肉',k:'Heilongjiang roe deer meat',d:'林区野味'},{n:'猴头菇',k:'monkey head mushroom dish',d:'猴头菇'},{n:'桦树汁',k:'birch sap drink natural',d:'白桦树汁'}]},
+
+{name:'儋州',province:'海南',desc:'海南西岸被忽略的宝藏，东坡书院千年文脉，千年古盐田世界罕见。',enKW:'Danzhou Hainan ancient salt field Dongpo',
+ bestSeason:'11月-次年3月',
+ tips:{transit:'儋州机场在建，海口乘高铁约1小时。',season:'冬季避寒最佳，夏季炎热。','local':'千年古盐田免费参观；东坡书院感受文化底蕴；海花岛适合拍照。',budget:'住宿200-500元/晚，多数景点免费，吃饭人均30-60元。'},
+ a:[{n:'千年古盐田',k:'ancient salt field Danzhou Hainan',t:'奇观'},{n:'东坡书院',k:'Dongpo academy Su Shi Hainan',t:'古迹'},{n:'海花岛',k:'Ocean Flower Island Hainan',t:'度假'},{n:'松涛水库',k:'Songtao reservoir Hainan lake',t:'湖泊'},{n:'石花水洞',k:'Shihua water cave Danzhou',t:'溶洞'},{n:'峨蔓火山海岸',k:'Eman volcanic coast beach',t:'海岸'},{n:'龙门激浪',k:'Longmen wave crash Danzhou',t:'自然'},{n:'海南热带植物园',k:'Hainan tropical botanical garden',t:'自然'}],
+ f:[{n:'儋州米烂',k:'Danzhou rice noodle soup',d:'儋州米烂'},{n:'儋州粽子',k:'Hainan zongzi rice dumpling',d:'儋州粽'},{n:'光村沙虫',k:'Guangcun sandworm Hainan',d:'光村沙虫'},{n:'东坡杨桃',k:'Hainan star fruit fresh',d:'东坡杨桃'},{n:'那大狗肉',k:'Hainan Nada dog meat dish',d:'那大狗肉'},{n:'洛基粽子',k:'Luoji rice dumpling Hainan',d:'洛基粽'},{n:'儋州海鸭',k:'Danzhou sea duck Hainan',d:'儋州海鸭'},{n:'红鱼干',k:'Hainan dried red fish',d:'红鱼干'}]},
+
+{name:'德宏',province:'云南',desc:'中缅边境热带风情地，傣族景颇族文化浓郁，一寨两国奇观。',enKW:'Dehong Mangshi border Yunnan tropical',
+ bestSeason:'11月-次年4月',
+ tips:{transit:'芒市机场即位于德宏州府。',season:'旱季干爽舒适。','local':'一寨两国体验一脚跨两国；目瑙纵歌节万人齐舞；热带雨林探险。',budget:'住宿150-300元/晚，消费极低，吃饭人均20-50元。'},
+ a:[{n:'一寨两国',k:'one village two countries border',t:'边境'},{n:'莫里热带雨林',k:'Moli tropical rainforest Yunnan',t:'雨林'},{n:'姐告口岸',k:'Jiegao border port Ruili',t:'边境'},{n:'独树成林',k:'single tree forest banyan Yunnan',t:'奇观'},{n:'芒令独树',k:'Mangling giant banyan tree',t:'自然'},{n:'畹町桥',k:'Wanding bridge border historic',t:'历史'},{n:'凯邦亚湖',k:'Kaibangya lake Dehong',t:'湖泊'},{n:'目瑙纵歌场',k:'Munao carnival Jingpo dance',t:'民俗'}],
+ f:[{n:'德宏咖啡',k:'Dehong Yunnan coffee bean',d:'云南小粒咖啡'},{n:'景颇手抓饭',k:'Jingpo hand grab rice feast',d:'景颇手抓饭'},{n:'傣味牛撒撇',k:'Dehong Dai beef bile salad',d:'傣味牛撒撇'},{n:'酸木瓜煮鱼',k:'sour papaya fish soup',d:'酸木瓜鱼'},{n:'火烧猪',k:'Dehong fire roast pig',d:'火烧猪'},{n:'泡鲁达',k:'coconut milk dessert Yunnan',d:'椰奶甜品'},{n:'遮放贡米',k:'Zhefang tribute rice',d:'遮放贡米'},{n:'陇川砂糖橘',k:'Longchuan mandarin orange',d:'陇川砂糖橘'}]},
+
+{name:'池州',province:'安徽',desc:'九华山下杏花春雨江南，中国佛教四大名山所在地，皖南被低估的旅行地。',enKW:'Chizhou Jiuhua mountain Buddhist Anhui',
+ bestSeason:'3月-5月、9月-11月',
+ tips:{transit:'池州九华山机场有航班；合肥乘高铁约1.5小时。',season:'春秋最佳。','local':'九华山佛教氛围浓厚；杏花村感受诗词意境；牯牛降原始森林徒步。',budget:'住宿200-500元/晚，九华山门票约160元，吃饭人均30-60元。'},
+ a:[{n:'九华山',k:'Jiuhua mountain Buddhist temple Anhui',t:'佛教'},{n:'杏花村',k:'Xinghua village apricot flower',t:'文化'},{n:'牯牛降',k:'Guniujiang nature reserve Anhui',t:'自然'},{n:'升金湖',k:'Shengjin lake migratory birds',t:'湿地'},{n:'蓬莱仙洞',k:'Penglai fairy cave Anhui',t:'溶洞'},{n:'平天湖',k:'Pingtian lake Chizhou scenery',t:'湖泊'},{n:'齐山',k:'Qishan mountain Chizhou',t:'登山'},{n:'秋浦河',k:'Qiupu river Li Bai poetry',t:'河流'}],
+ f:[{n:'池州小粑',k:'Chizhou small cake breakfast',d:'池州小粑'},{n:'石台富硒米',k:'Shitai selenium rice grain',d:'富硒米'},{n:'九华素斋',k:'Jiuhua vegetarian Buddhist meal',d:'九华素斋'},{n:'东至麦鱼',k:'Dongzhi wheat fish dish',d:'麦鱼'},{n:'葛公豆腐',k:'Gegong tofu Anhui mountain',d:'葛公豆腐'},{n:'西山焦枣',k:'Xishan dried jujube date',d:'西山焦枣'},{n:'阮桥板鸭',k:'Ruanqiao dried duck Anhui',d:'阮桥板鸭'},{n:'青阳土鸡',k:'Qingyang free range chicken',d:'青阳土鸡'}]},
+
+{name:'曲靖',province:'云南',desc:'云南第二大城市，罗平油菜花海惊艳世界，珠江源头所在地。',enKW:'Qujing Luoping canola flower golden Yunnan',
+ bestSeason:'2月-3月（罗平油菜花）',
+ tips:{transit:'曲靖无机场，昆明乘高铁约30分钟。',season:'早春油菜花季是最大亮点；夏季凉爽避暑。','local':'罗平油菜花2月中旬-3月中旬最佳；九龙瀑布群雨季壮观；会泽古城体验慢生活。',budget:'住宿150-300元/晚，罗平门票多在50-100元，吃饭人均25-50元。'},
+ a:[{n:'罗平油菜花',k:'Luoping canola flower golden sea',t:'花海'},{n:'九龙瀑布群',k:'Jiulong waterfall group Yunnan',t:'瀑布'},{n:'珠江源',k:'Pearl River source Qujing',t:'自然'},{n:'多依河',k:'Duoyi river Buyi ethnic Yunnan',t:'河流'},{n:'会泽古城',k:'Huize ancient town Yunnan',t:'古城'},{n:'大海草山',k:'Dahai grass mountain Qujing',t:'草原'},{n:'陆良彩色沙林',k:'Luliang colorful sand forest',t:'奇观'},{n:'念湖',k:'Nianhu lake black crane birds',t:'湿地'}],
+ f:[{n:'曲靖蒸饵丝',k:'Qujing steamed rice noodle',d:'蒸饵丝'},{n:'沾益辣子鸡',k:'Zhanyi spicy chicken Yunnan',d:'沾益辣子鸡'},{n:'宣威火腿',k:'Xuanwei cured ham China',d:'宣威火腿'},{n:'会泽稀豆粉',k:'Huize pea porridge breakfast',d:'稀豆粉'},{n:'富源酸菜猪脚',k:'Fuyuan sour pickled trotter',d:'酸菜猪脚火锅'},{n:'陆良麻衣馓子',k:'Luliang crisp fried snack',d:'麻衣馓子'},{n:'罗平蜂蜜',k:'Luoping honey bee flower',d:'罗平蜂蜜'},{n:'师宗竹荪',k:'Shizong bamboo fungus mushroom',d:'竹荪'}]},
+
+{name:'阿克苏',province:'新疆',desc:'南疆塞外江南，天山托木尔大峡谷壮阔无比，冰糖心苹果甜过初恋。',enKW:'Aksu Xinjiang apple canyon Silk Road',
+ bestSeason:'4月-6月、9月-10月',
+ tips:{transit:'阿克苏红旗坡机场有航班。',season:'春秋最佳，夏季炎热但峡谷壮美。','local':'温宿大峡谷可自驾进入；神木园千年古树；秋季冰糖心苹果成熟。',budget:'住宿200-400元/晚，大峡谷门票约60元，吃饭人均30-60元。'},
+ a:[{n:'温宿大峡谷',k:'Wensu Grand Canyon Aksu Xinjiang',t:'峡谷'},{n:'神木园',k:'Shenmu garden ancient tree Aksu',t:'奇观'},{n:'克孜尔千佛洞',k:'Kizil Thousand Buddha Caves',t:'石窟'},{n:'天山神木园',k:'Tianshan sacred tree garden',t:'自然'},{n:'库车大峡谷',k:'Kuqa Grand Canyon red rock',t:'峡谷'},{n:'多浪河',k:'Duolang river Aksu city',t:'河流'},{n:'塔克拉玛干沙漠之门',k:'Taklamakan desert gate Xinjiang',t:'沙漠'},{n:'阿克苏博物馆',k:'Aksu museum Silk Road culture',t:'博物馆'}],
+ f:[{n:'阿克苏苹果',k:'Aksu sugar heart apple fruit',d:'冰糖心苹果'},{n:'阿克苏烤包子',k:'Xinjiang samsa baked bun',d:'烤包子'},{n:'库车大馕',k:'Kuqa giant naan bread Xinjiang',d:'库车大馕'},{n:'温宿核桃',k:'Wensu walnut Xinjiang',d:'温宿核桃'},{n:'阿克苏红枣',k:'Aksu jujube date red Xinjiang',d:'阿克苏红枣'},{n:'手抓饭',k:'Xinjiang polo rice lamb',d:'新疆抓饭'},{n:'拌面',k:'Xinjiang laghman noodle pulled',d:'新疆拉条子'},{n:'缸子肉',k:'Xinjiang jar meat lamb stew',d:'缸子肉'}]}
+];
+
+// ==================== STATE ====================
+var currentCities=[],selectedCity=null,selectedDays=3,selectedNights=2,isSpinning=false;
+var wheelAngle=0,spinStartTime=0,animationId=null,textAnimProgress=0;
+
+// ==================== DOM ====================
+var $canvas=document.getElementById('wheelCanvas'),ctx=$canvas.getContext('2d');
+var $spinBtn=document.getElementById('spinBtn'),$resultPanel=document.getElementById('resultPanel');
+var $resultCityName=document.getElementById('resultCityName'),$resultProvince=document.getElementById('resultProvince');
+var $resultSeason=document.getElementById('resultSeason'),$attractionsList=document.getElementById('attractionsList');
+var $foodList=document.getElementById('foodList'),$generateBtn=document.getElementById('generateBtn');
+var $docOverlay=document.getElementById('docOverlay'),$docContainer=document.getElementById('docContainer');
+var $docClose=document.getElementById('docClose'),$refreshBtn=document.getElementById('refreshBtn');
+var $durationOptions=document.getElementById('durationOptions'),$customDays=document.getElementById('customDays');
+var $customDaysInput=document.getElementById('customDaysInput'),$customNightsInput=document.getElementById('customNightsInput');
+var W=520,H=520,CX=260,CY=260,R=230;
+
+// ==================== UTILS ====================
+function shuffle(a){var r=a.slice();for(var i=r.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=r[i];r[i]=r[j];r[j]=t;}return r}
+function pick20(){return shuffle(CITIES).slice(0,20)}
+
+// ==================== DRAWING ====================
+var SEG_COLORS=['#e8d5cb','#dfcdc0','#d9c8b8','#e0d4c4','#dccfc0','#e5d7c8','#ded0c2','#e2d3c4','#dbcbb8','#e6d8ca','#d8c6b5','#e3d2c0','#ddcebe','#e7d9cc','#dac8b6','#e1cfbd','#decdba','#e4d5c3','#d7c4b2','#e9dbce'];
+
+function drawWheel(animP){
+  ctx.clearRect(0,0,W,H);
+  var N=currentCities.length;if(!N)return;
+  var sa=(2*Math.PI)/N,prog=Math.min(1,Math.max(0,animP||0));
+
+  for(var i=0;i<N;i++){
+    var a0=wheelAngle+i*sa-Math.PI/2,a1=a0+sa;
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.arc(CX,CY,R,a0,a1);ctx.closePath();
+    ctx.fillStyle=SEG_COLORS[i];ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.06)';ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.beginPath();ctx.arc(CX,CY,R+4,0,2*Math.PI);ctx.strokeStyle='#c49b8c';ctx.lineWidth=3;ctx.stroke();
+  ctx.beginPath();ctx.arc(CX,CY,50,0,2*Math.PI);ctx.fillStyle='#f5f0ea';ctx.fill();ctx.strokeStyle='#c49b8c';ctx.lineWidth=2;ctx.stroke();
+
+  for(var i2=0;i2<N;i2++){
+    var d=wheelAngle+i2*sa-Math.PI/2;
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(CX+R*Math.cos(d),CY+R*Math.sin(d));
+    ctx.strokeStyle='rgba(0,0,0,0.08)';ctx.lineWidth=1;ctx.stroke();
+  }
+
+  for(var i3=0;i3<N;i3++){
+    var ma=wheelAngle+i3*sa+sa/2-Math.PI/2,tr=R*0.68;
+    var tx=CX+tr*Math.cos(ma),ty=CY+tr*Math.sin(ma);
+    var cp=Math.max(0,Math.min(1,(prog*N-i3*0.7+0.3)/0.7));
+    ctx.save();ctx.translate(tx,ty);ctx.rotate(ma+Math.PI/2);
+    if(Math.cos(ma)<0)ctx.rotate(Math.PI);
+    ctx.globalAlpha=cp;ctx.font='bold 13px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#4a423b';
+    ctx.shadowColor='rgba(0,0,0,0.2)';ctx.shadowBlur=3;ctx.scale(0.5+0.5*cp,0.5+0.5*cp);
+    ctx.fillText(currentCities[i3].name,0,0);ctx.restore();
+  }
+}
+
+var popInStart=0;
+function animTextPopIn(ts){if(!popInStart)popInStart=ts;var p=Math.min(1,(ts-popInStart)/800);drawWheel(p);if(p<1)requestAnimationFrame(animTextPopIn);else textAnimProgress=1}
+function startTextAnim(){popInStart=0;textAnimProgress=0;requestAnimationFrame(animTextPopIn)}
+
+// ==================== SPIN ====================
+var DUR=3200,spinBase=0,spinTR=0;
+function easeOut(t){return 1-Math.pow(1-t,3)}
+function doSpin(ts){
+  if(!spinStartTime){spinStartTime=ts;spinBase=wheelAngle;spinTR=(6+Math.random()*3)*2*Math.PI}
+  var el=ts-spinStartTime,t=Math.min(1,el/DUR),e=easeOut(t);
+  wheelAngle=spinBase+spinTR*e;drawWheel(1);
+  if(t>=1){wheelAngle=(spinBase+spinTR)%(2*Math.PI);drawWheel(1);$canvas.classList.remove('spinning');$spinBtn.disabled=false;isSpinning=false;onSpinComplete();return}
+  animationId=requestAnimationFrame(doSpin);
+}
+function startSpin(){if(isSpinning||!currentCities.length)return;isSpinning=true;$spinBtn.disabled=true;$canvas.classList.add('spinning');$resultPanel.classList.remove('show');spinStartTime=0;animationId=requestAnimationFrame(doSpin)}
+
+function onSpinComplete(){
+  var N=currentCities.length,sa=(2*Math.PI)/N,best=0,bestD=Infinity;
+	  for(var i=0;i<N;i++){var ca=wheelAngle+i*sa+sa/2-Math.PI/2;var df=ca+Math.PI/2;df=df-Math.floor((df+Math.PI)/(2*Math.PI))*(2*Math.PI);if(Math.abs(df)<bestD){bestD=Math.abs(df);best=i}}
+  selectedCity=currentCities[best];showResult();
+}
+function showResult(){
+  $resultPanel.classList.add('show');$resultCityName.textContent=selectedCity.name;
+  $resultProvince.innerHTML=selectedCity.province+' · '+selectedCity.desc;
+  $resultSeason.innerHTML='<strong>最佳旅行时间：</strong>'+selectedCity.bestSeason;
+  $attractionsList.innerHTML=selectedCity.a.map(function(x){return'<li>'+x.n+'<span class="tag">'+x.t+'</span></li>'}).join('');
+  $foodList.innerHTML=selectedCity.f.map(function(x){return'<li>'+x.n+' <span style="font-size:.8em;color:#888">'+x.d+'</span></li>'}).join('');
+  $resultPanel.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ==================== ITINERARY ====================
+var DAY_THEMES=['初识','深度探索','文化之旅','自然风光','舌尖寻味','休闲漫游','秘境探寻','时光漫步','山水之间','告别之旅'];
+
+function buildItinerary(city,days,nights){
+  var attrs=city.a.slice(),foods=city.f.slice();
+  var plans=[],used=new Set();
+
+  // Shuffle and use unique attractions
+  attrs=shuffle(attrs);
+
+  for(var d=0;d<days;d++){
+    var morning='',afternoon='',evening='',foodRecs=[],theme=DAY_THEMES[d%DAY_THEMES.length];
+
+    // Pick unique attractions for this day
+    if(d*2<attrs.length)morning=attrs[d*2].n;
+    else if(d<attrs.length)morning=attrs[d].n;
+    else morning='自由探索'+city.name+'老城区/特色街巷';
+
+    if(d*2+1<attrs.length)afternoon=attrs[d*2+1].n;
+    else if(d+1<attrs.length)afternoon=attrs[d+1].n;
+    else afternoon='沉浸式漫步'+city.name+'大街小巷，发现不期而遇的惊喜';
+
+    // Food for this day
+    var fs=(d*2)%foods.length;
+    for(var f=0;f<2;f++)foodRecs.push(foods[(fs+f)%foods.length].n);
+    if(foodRecs[0]===foodRecs[1]&&foods.length>2)foodRecs[1]=foods[(fs+2)%foods.length].n;
+
+    // Evening - unique per day
+    if(d===0)evening='抵达后稍作休整，逛当地夜市或美食街，感受'+city.name+'的城市烟火气';
+    else if(d===days-1)evening='最后一晚，买些当地特产伴手礼，在'+city.name+'最好的餐厅享用一顿告别晚餐';
+    else{var eves=['逛当地夜市，尝试街边小吃','去当地特色酒吧或茶馆小坐','在城区沿河边散步看夜景','去当地热闹的夜市或音乐广场','找一家有特色的咖啡馆看书发呆'];evening=eves[d%eves.length]}
+
+    plans.push({d:d+1,theme:theme,morning:morning,afternoon:afternoon,evening:evening,food:foodRecs});
+  }
+  return plans;
+}
+
+// ==================== DOCUMENT RENDERING ====================
+function renderDoc(city,days,nights,itinerary){
+  var label=days+'天'+(nights>0?nights+'晚':'');
+  var h='';
+  h+='<div class="doc-header"><div><h2>'+city.name+' 旅游攻略</h2><p style="opacity:0.7;margin-top:4px">'+city.province+' · '+label+'</p></div><div class="doc-actions"><button onclick="window.print()">打印/存PDF</button><button class="save-btn" id="saveHtmlBtn">保存为HTML</button></div></div>';
+  h+='<div class="doc-body">';
+
+  // City overview
+  h+='<h3>城市印象</h3><p style="line-height:1.8;color:#555">'+city.desc+'</p>';
+  h+=photoCard(city.name+' '+city.province+' 风景',city.name,800,350);
+
+  // Best season & tips
+  h+='<h3>出行贴士</h3><div class="tips-grid">';
+  h+='<div class="tip-card"><strong>最佳时间</strong><p>'+city.bestSeason+'</p></div>';
+  h+='<div class="tip-card"><strong>交通指南</strong><p>'+city.tips.transit+'</p></div>';
+  h+='<div class="tip-card"><strong>季节贴士</strong><p>'+city.tips.season+'</p></div>';
+  h+='<div class="tip-card"><strong>游玩建议</strong><p>'+city.tips.local+'</p></div>';
+  h+='<div class="tip-card"><strong>预算参考</strong><p>'+city.tips.budget+'</p></div>';
+  h+='<div class="tip-card"><strong>行程天数</strong><p>建议游玩'+days+'天'+(nights>0?nights+'晚':'')+'，有充足时间深度体验</p></div>';
+  h+='</div>';
+
+  // Attractions
+  h+='<h3>必游景点</h3>';
+  city.a.forEach(function(a){
+    h+='<div class="timeline-item"><div class="timeline-content"><strong>'+a.n+' <span style="font-size:.75em;color:#f7971e;background:#f7971e15;padding:2px 8px;border-radius:4px">'+a.t+'</span></strong>';
+    h+=photoCard(a.t+' '+a.n,a.n,800,300);
+    h+='</div></div>';
+  });
+
+  // Food
+  h+='<h3>特色美食</h3><div class="food-list">';
+  city.f.forEach(function(f){
+    h+='<div class="food-card">'+photoCardFood(f.n,f.n,400,200)+'<div class="fi"><strong>'+f.n+'</strong><span>'+f.d+'</span></div></div>';
+  });
+  h+='</div>';
+
+  // Daily itinerary
+  h+='<h3>'+label+' 详细行程</h3>';
+  itinerary.forEach(function(day){
+    h+='<div class="day-block"><h4>Day '+day.d+'：'+day.theme+city.name+'</h4>';
+    h+='<div class="timeline-item"><div class="timeline-time">上午</div><div class="timeline-content"><strong>'+day.morning+'</strong><p>建议8:30左右出发，上午光线好适合游览拍照，预留2-3小时从容游玩。</p></div></div>';
+    h+='<div class="timeline-item"><div class="timeline-time">中午</div><div class="timeline-content"><strong>午餐时光</strong><p>推荐品尝：<em>'+day.food.join('、')+'</em></p></div></div>';
+    h+='<div class="timeline-item"><div class="timeline-time">下午</div><div class="timeline-content"><strong>'+day.afternoon+'</strong><p>下午充裕游览，放慢节奏感受'+city.name+'的独特魅力，预留2-3小时。</p></div></div>';
+    h+='<div class="timeline-item"><div class="timeline-time">晚上</div><div class="timeline-content"><strong>晚间安排</strong><p>'+day.evening+'</p></div></div>';
+    h+='</div>';
+  });
+
+  // Extra tips
+  h+='<h3>实用建议</h3>';
+  h+='<div style="background:#f8f4ef;border-radius:10px;padding:16px 20px;margin:12px 0;line-height:1.8;font-size:.9em;color:#6b6056;border:1px solid #e5dbcf">';
+  h+='<strong>穿衣指南：</strong>出行前查好天气预报，备一双舒适的徒步鞋，'+city.province+'地区早晚温差可能较大，建议带薄外套。<br>';
+  h+='<strong>摄影提示：</strong>'+city.a[0].n+'和'+city.a[1].n+'是最出片的两个点，建议黄金时段（日出后1小时/日落前1小时）前往。<br>';
+  h+='<strong>订票提醒：</strong>热门景点建议提前1-2天在线预订，节假日期间提前更多。小众城市周末也可能有当地游客潮。<br>';
+  h+='<strong>安全提醒：</strong>'+city.name+'整体治安良好，但游玩时注意保管随身物品，山区游玩遵守景区安全提示。';
+  h+='</div>';
+
+  h+='<p style="text-align:center;color:#b8a898;margin-top:30px;font-size:.8em">—— 冷门旅游城市大转盘 · 祝你旅途愉快 ——</p>';
+  h+='</div>';
+
+  $docContainer.innerHTML=h;
+  $docOverlay.classList.add('show');$docClose.classList.add('show');document.body.style.overflow='hidden';
+  // Each image is a clickable card → opens Baidu Image Search with real photos
+
+  setTimeout(function(){
+    var sb=document.getElementById('saveHtmlBtn');
+    if(sb)sb.addEventListener('click',function(){saveDoc(city,days,nights,itinerary)});
+  },100);
+}
+
+function saveDoc(city,days,nights,itinerary){
+  var label=days+'天'+nights+'晚';
+  var html='<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<title>'+city.name+'旅游攻略-'+label+'</title>\n<style>\n';
+  html+='body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;max-width:800px;margin:0 auto;padding:40px 20px;color:#4a423b;line-height:1.8;background:#fdfbf8}\n';
+  html+='h1{color:#b88574;border-bottom:3px solid #d9cdbf;padding-bottom:10px}\n';
+  html+='h2{color:#4a423b;border-left:4px solid #c49b8c;padding-left:12px;margin-top:28px}\n';
+  html+='img{width:100%;max-width:700px;border-radius:10px;margin:10px 0;background:#ede4d9}\n';
+  html+='.day{background:#f8f4ef;padding:16px 20px;border-radius:10px;margin:16px 0;border-left:4px solid #c49b8c}\n';
+  html+='.food-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}\n';
+  html+='.fc{background:#f8f4ef;border-radius:10px;overflow:hidden;border:1px solid #e5dbcf}\n';
+  html+='.fc img{height:150px;object-fit:cover;margin:0;background:#ede4d9}.fc div{padding:10px}\n';
+  html+='.time{display:inline-block;background:#e8d5cb;padding:2px 10px;border-radius:4px;color:#b88574;font-weight:600;font-size:.9em;margin-right:8px}\n';
+  html+='.tip{background:#f8f4ef;padding:12px 16px;border-radius:8px;margin:8px 0;font-size:.9em;border:1px solid #e5dbcf}\n';
+  html+='@media print{body{padding:0;background:#fff}img{max-width:100%}}\n</style>\n</head>\n<body>\n';
+  html+='<h1>'+city.name+' '+label+' 旅游攻略</h1>\n<p><strong>'+city.province+'</strong> | '+city.desc+'</p>\n';
+  html+=photoCard(city.name+' '+city.province+' 风景',city.name,800,350)+'\n';
+  html+='<h2>出行贴士</h2>\n';
+  html+='<div class="tip"><strong>最佳时间：</strong>'+city.bestSeason+'</div>\n';
+  html+='<div class="tip"><strong>交通：</strong>'+city.tips.transit+'</div>\n';
+  html+='<div class="tip"><strong>游玩建议：</strong>'+city.tips.local+'</div>\n';
+  html+='<div class="tip"><strong>预算参考：</strong>'+city.tips.budget+'</div>\n';
+  html+='<h2>必游景点</h2>\n';
+  city.a.forEach(function(a){html+='<p><strong>'+a.n+'</strong> ['+a.t+']</p>\n'+photoCard(a.t+' '+a.n,a.n,800,300)+'\n'});
+  html+='<h2>特色美食</h2>\n<div class="food-grid">\n';
+  city.f.forEach(function(f){html+='<div class="fc">'+photoCardFood(f.n,f.n,400,200)+'<div><strong>'+f.n+'</strong><br><span style="color:#8a7e72;font-size:.85em">'+f.d+'</span></div></div>\n'});
+  html+='</div>\n<h2>'+label+' 详细行程</h2>\n';
+  itinerary.forEach(function(d){html+='<div class="day"><h3>Day '+d.d+'：'+d.theme+'</h3>\n<p><span class="time">上午</span><strong>'+d.morning+'</strong></p>\n<p><span class="time">中午</span>'+d.food.join('、')+'</p>\n<p><span class="time">下午</span><strong>'+d.afternoon+'</strong></p>\n<p><span class="time">晚上</span>'+d.evening+'</p>\n</div>\n'});
+  html+='<p style="text-align:center;color:#b8a898;margin-top:30px">生成于 冷门旅游城市大转盘</p>\n</body>\n</html>';
+  var b=new Blob([html],{type:'text/html;charset=UTF-8'}),u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download=city.name+'_'+label+'_旅游攻略.html';a.click();URL.revokeObjectURL(u);toast('攻略已保存！');
+}
+
+function toast(m){var t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},2000)}
+
+function refreshCities(){currentCities=pick20();textAnimProgress=0;drawWheel(0);startTextAnim()}
+
+// ==================== EVENT BINDINGS ====================
+// QR code for mobile access (only shown when served from local network)
+(function(){
+  var origin=window.location.origin;
+  if(origin.indexOf('localhost')>=0||origin.match(/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/)){
+    var $qrBtn=document.getElementById('qrBtn');
+    var $qrModal=document.getElementById('qrModal');
+    var $qrImg=document.getElementById('qrImg');
+    var $qrUrl=document.getElementById('qrUrl');
+    var qrUrl=origin+window.location.pathname;
+    $qrImg.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(qrUrl);
+    $qrUrl.textContent=qrUrl;
+    $qrBtn.classList.add('show');
+    $qrBtn.addEventListener('click',function(){$qrModal.classList.add('show')});
+    document.getElementById('qrClose').addEventListener('click',function(){$qrModal.classList.remove('show')});
+    $qrModal.addEventListener('click',function(e){if(e.target===$qrModal)$qrModal.classList.remove('show')});
+  }
+})();
+
+$spinBtn.addEventListener('click',function(){if(!isSpinning)startSpin()});
+$refreshBtn.addEventListener('click',function(){if(isSpinning)return;refreshCities();$resultPanel.classList.remove('show');selectedCity=null});
+$generateBtn.addEventListener('click',function(){if(!selectedCity)return;var it=buildItinerary(selectedCity,selectedDays,selectedNights);renderDoc(selectedCity,selectedDays,selectedNights,it)});
+$docClose.addEventListener('click',function(){$docOverlay.classList.remove('show');$docClose.classList.remove('show');document.body.style.overflow=''});
+$docOverlay.addEventListener('click',function(e){if(e.target===$docOverlay){$docOverlay.classList.remove('show');$docClose.classList.remove('show');document.body.style.overflow=''}});
+document.addEventListener('keydown',function(e){if(e.code==='Space'&&!isSpinning&&document.body.style.overflow!=='hidden'){e.preventDefault();startSpin()}if(e.code==='Escape'){$docOverlay.classList.remove('show');$docClose.classList.remove('show');document.body.style.overflow=''}});
+$durationOptions.addEventListener('click',function(e){var b=e.target.closest('.duration-btn');if(!b)return;document.querySelectorAll('.duration-btn').forEach(function(x){x.classList.remove('selected')});b.classList.add('selected');if(b.dataset.days==='custom'){$customDays.style.display='flex';selectedDays=parseInt($customDaysInput.value)||3;selectedNights=parseInt($customNightsInput.value)||2}else{$customDays.style.display='none';selectedDays=parseInt(b.dataset.days);selectedNights=parseInt(b.dataset.nights)}});
+$customDaysInput.addEventListener('input',function(){selectedDays=parseInt($customDaysInput.value)||1});
+$customNightsInput.addEventListener('input',function(){selectedNights=parseInt($customNightsInput.value)||0});
+
+// ==================== INIT ====================
+currentCities=pick20();drawWheel(0);startTextAnim();
+})();
+</script>
+</body>
+</html>
