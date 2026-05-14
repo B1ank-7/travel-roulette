@@ -6,38 +6,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '17'}
 
       - name: Setup Android SDK
         run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
-          unzip -q tools.zip && mv cmdline-tools latest
+          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/tools.zip
+          mkdir -p /usr/local/android-sdk/cmdline-tools
+          cd /usr/local/android-sdk/cmdline-tools
+          unzip -q /tmp/tools.zip && mv cmdline-tools latest
           yes | ./latest/bin/sdkmanager --licenses >/dev/null 2>&1 || true
           ./latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_HOME=/usr/local/android-sdk" >> $GITHUB_ENV
 
-      - name: Generate keystore
-        run: keytool -genkey -v -keystore release.jks -alias travel -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Travel"
+      - name: Download Gradle
+        run: |
+          curl -sL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /usr/local/
+          echo "/usr/local/gradle-8.9/bin" >> $GITHUB_PATH
 
       - name: Build APK
         working-directory: android
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          gradle wrapper --gradle-version 8.9
-          ./gradlew assembleRelease || ./gradlew assembleDebug
-
-      - name: Upload APK
-        run: |
-          APK=$(find android -name "*.apk" 2>/dev/null | head -1)
-          [ -z "$APK" ] && APK=$(find . -name "*.apk" 2>/dev/null | head -1)
-          echo "APK: $APK"
-          cp "$APK" travel-roulette.apk 2>/dev/null || echo "No APK found"
+          gradle wrapper --gradle-version 8.9 --no-daemon
+          ./gradlew assembleDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
           name: 旅游大转盘-APK
-          path: "*.apk"
+          path: android/app/build/outputs/apk/debug/*.apk
