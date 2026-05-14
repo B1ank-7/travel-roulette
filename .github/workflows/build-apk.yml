@@ -1,0 +1,47 @@
+name: Build APK
+on: workflow_dispatch
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+
+      - name: Setup Android SDK
+        run: |
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
+          unzip -q tools.zip && mv cmdline-tools latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Generate keystore
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias travel -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Travel, OU=App, O=Roulette, L=Beijing, ST=Beijing, C=CN"
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Init & Build TWA
+        run: |
+          bubblewrap init --manifest https://b1ank-7.github.io/travel-roulette/manifest.json --directory twa
+          cd twa
+          bubblewrap build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 旅游大转盘-APK
+          path: twa/app/release/*.apk || twa/*.apk || twa/**/*.apk
